@@ -1,18 +1,30 @@
+<!-- HTML5 doctype: tells browsers to use modern (standards) rendering -->
 <!DOCTYPE html>
+<!-- Document language (helps accessibility, screen readers, and SEO) -->
 <html lang="en">
 <head>
+    <!-- Document character encoding -->
     <meta charset="UTF-8">
+    <!-- Ensure proper scaling on mobile devices -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Visible page title in browser tabs and search results -->
     <title>Word Length Analyzer — Text Length Dashboard</title>
+    <!-- Short description for search engines and previews -->
     <meta name="description" content="Analyze word lengths in text, find the longest and shortest words, and view detailed word-length lists with an accessible, semantic interface.">
+    <!-- Author of the page/app -->
     <meta name="author" content="ramfromindia">
+    <!-- Preferred canonical URL to avoid duplicate-content issues -->
     <link rel="canonical" href="./Text_LENGTH_Dashboard.html">
+    <!-- Main stylesheet for layout and design -->
     <link rel="stylesheet" href="Text_LENGTH_Dashboard.css">
 </head>
 <body>
     <header>
+        <!-- Main page title: visible to sighted users and used by assistive tech -->
         <h1>Word Length Analyzer</h1>
-        <p class="sr-only">Analyze word lengths, find longest and shortest words, and view detailed results. Accessible and semantic.</p>
+    <!-- Screen-reader-only description: provides app summary for assistive technologies -->
+    <!-- This text is not used directly by the JS logic but improves accessibility and explains the app to screen-reader users -->
+    <p class="sr-only">Analyze word lengths, find longest and shortest words, and view detailed results. Accessible and semantic.</p>
     </header>
 
     <main>
@@ -20,9 +32,13 @@
             <h2 id="app-heading" class="visually-hidden">Text Length Analysis Application</h2>
 
             <form id="analyzeForm" onsubmit="event.preventDefault(); document.getElementById('analyzeBtn').click();" aria-describedby="instructions">
+                <!-- Hidden instructions exposed to screen readers -->
                 <div id="instructions" class="visually-hidden">Type or paste text into the textarea and press Analyze.</div>
+                <!-- Label tied to the textarea for accessibility -->
                 <label for="inputText">Enter text to analyze</label><br>
+                <!-- Main textarea input read by JS via id="inputText" -->
                 <textarea id="inputText" name="inputText" rows="6" cols="60" placeholder="Enter your text here..." aria-required="true"></textarea><br>
+                <!-- Analyze button: click triggers JS handler; form submit delegates to this button -->
                 <button id="analyzeBtn" type="button">Analyze Word Lengths</button>
             </form>
 
