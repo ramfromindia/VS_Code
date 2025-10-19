@@ -4,6 +4,26 @@ const wordLengthsEl = document.getElementById('wordLengths'); // now a <ul>
 const mostCommonWordsEl = document.getElementById('mostCommonWords'); // role=status
 const leastCommonWordsEl = document.getElementById('leastCommonWords'); // role=status
 
+/* Autofocus management: focus the main textarea on initial page load for better UX
+   but avoid forcing the on-screen keyboard on mobile devices. Use preventScroll
+   where available and fall back gracefully for older browsers. */
+document.addEventListener('DOMContentLoaded', () => {
+    const ta = document.getElementById('inputText');
+    if (!ta) return;
+
+    // Basic mobile detection: avoid opening the virtual keyboard automatically
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    if (!isMobile) {
+        try {
+            ta.focus({ preventScroll: true });
+        } catch (e) {
+            // Older browsers may not support the options object
+            ta.focus();
+        }
+    }
+});
+
 // Wire events: use the form's submit event as the single source of truth.
 // The button in the form is a submit button, so pressing Enter in the textarea
 // or clicking the button both trigger this handler. This avoids double
