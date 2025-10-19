@@ -45,16 +45,19 @@
             <section id="results" aria-labelledby="results-heading">
                 <h2 id="results-heading">Results</h2>
 
+                <!-- List of all matched words (word + length). Populated by JS as <li> items in #wordLengths -->
                 <section aria-labelledby="word-lengths-heading">
                     <h3 id="word-lengths-heading">Words with Lengths</h3>
                     <ul id="wordLengths" aria-live="polite"></ul>
                 </section>
 
+                <!-- Summary: word(s) with the maximum length. Updated by JS in #mostCommonWords (role=status + aria-live) -->
                 <section aria-labelledby="highest-heading">
                     <h3 id="highest-heading">Word(s) With Highest Length</h3>
                     <div id="mostCommonWords" role="status" aria-live="polite">No data yet.</div>
                 </section>
 
+                <!-- Summary: word(s) with the minimum length. Updated by JS in #leastCommonWords (role=status + aria-live) -->
                 <section aria-labelledby="lowest-heading">
                     <h3 id="lowest-heading">Word(s) With Lowest Length</h3>
                     <div id="leastCommonWords" role="status" aria-live="polite">No data yet.</div>
