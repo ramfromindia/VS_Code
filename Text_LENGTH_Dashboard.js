@@ -4,8 +4,11 @@ const wordLengthsEl = document.getElementById('wordLengths'); // now a <ul>
 const mostCommonWordsEl = document.getElementById('mostCommonWords'); // role=status
 const leastCommonWordsEl = document.getElementById('leastCommonWords'); // role=status
 
-// Wire events: support both button click and form submit for progressive enhancement
-if (analyzeBtn) analyzeBtn.addEventListener('click', analyzeWordLengths);
+// Wire events: use the form's submit event as the single source of truth.
+// The button in the form is a submit button, so pressing Enter in the textarea
+// or clicking the button both trigger this handler. This avoids double
+// invocation that can happen when both the button click and form submit
+// separately call the same function.
 if (form) form.addEventListener('submit', function (e) { e.preventDefault(); analyzeWordLengths(); });
 
 

@@ -31,7 +31,7 @@
         <article aria-labelledby="app-heading">
             <h2 id="app-heading" class="visually-hidden">Text Length Analysis Application</h2>
 
-            <form id="analyzeForm" onsubmit="event.preventDefault(); document.getElementById('analyzeBtn').click();" aria-describedby="instructions">
+            <form id="analyzeForm" aria-describedby="instructions">
                 <!-- Hidden instructions exposed to screen readers -->
                 <div id="instructions" class="visually-hidden">Type or paste text into the textarea and press Analyze.</div>
                 <!-- Label tied to the textarea for accessibility -->
@@ -39,7 +39,7 @@
                 <!-- Main textarea input read by JS via id="inputText" -->
                 <textarea id="inputText" name="inputText" rows="6" cols="60" placeholder="Enter your text here..." aria-required="true"></textarea><br>
                 <!-- Analyze button: click triggers JS handler; form submit delegates to this button -->
-                <button id="analyzeBtn" type="button">Analyze Word Lengths</button>
+                <button id="analyzeBtn" type="submit">Analyze Word Lengths</button>
             </form>
 
             <section id="results" aria-labelledby="results-heading">
