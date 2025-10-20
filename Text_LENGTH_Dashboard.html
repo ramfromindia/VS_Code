@@ -39,7 +39,8 @@
                 <!-- Main textarea input read by JS via id="inputText" -->
                 <textarea id="inputText" name="inputText" rows="6" cols="60" placeholder="Enter your text here..." aria-required="true"></textarea><br>
                 <!-- Analyze button: submits text in #inputText to compute and display word lengths and summaries -->
-                <button id="analyzeBtn" type="submit">Analyze Word Lengths</button>
+                <!-- aria-controls lists IDs the button will update (helps AT users understand the relationship) -->
+                <button id="analyzeBtn" type="submit" aria-controls="wordLengths mostCommonWords leastCommonWords">Analyze Word Lengths</button>
             </form>
 
             <section id="results" aria-labelledby="results-heading">
@@ -49,19 +50,23 @@
                 <!-- List of all matched words (word + length). Populated by JS as <li> items in #wordLengths -->
                 <section aria-labelledby="word-lengths-heading">
                     <h3 id="word-lengths-heading">Words with Lengths</h3>
-                    <ul id="wordLengths" aria-live="polite"></ul>
+                    <!-- Remove live updates here to avoid verbose, item-by-item announcements.
+                         We'll announce a single summary via the #sr-announcer element. -->
+                    <ul id="wordLengths"></ul>
                 </section>
 
                 <!-- Summary: word(s) with the maximum length. Updated by JS in #mostCommonWords (role=status + aria-live) -->
                 <section aria-labelledby="highest-heading">
                     <h3 id="highest-heading">Word(s) With Highest Length</h3>
-                    <div id="mostCommonWords" role="status" aria-live="polite">No data yet.</div>
+                    <!-- Keep visual summary for sighted users but disable automatic live announcements.
+                         Use the single #sr-announcer for spoken updates. -->
+                    <div id="mostCommonWords" role="region" aria-live="off"></div>
                 </section>
 
                 <!-- Summary: word(s) with the minimum length. Updated by JS in #leastCommonWords (role=status + aria-live) -->
                 <section aria-labelledby="lowest-heading">
                     <h3 id="lowest-heading">Word(s) With Lowest Length</h3>
-                    <div id="leastCommonWords" role="status" aria-live="polite">No data yet.</div>
+                    <div id="leastCommonWords" role="region" aria-live="off"></div>
                 </section>
             </section>
         </article>
@@ -70,6 +75,11 @@
     <footer>
         <p>Built by ramfromindia — <small>Accessible, semantic markup</small></p>
     </footer>
+    <!-- Screen-reader-only announcer: single atomic live region for concise announcements.
+         This prevents screen readers from reading every inserted <li> item and gives
+         full control over the spoken summary. -->
+    <div id="sr-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+
     <script src="Text_LENGTH_Dashboard.js"></script>
 </body>
 </html>

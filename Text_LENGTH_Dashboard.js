@@ -1,8 +1,10 @@
 const analyzeBtn = document.getElementById('analyzeBtn');
 const form = document.getElementById('analyzeForm');
 const wordLengthsEl = document.getElementById('wordLengths'); // now a <ul>
-const mostCommonWordsEl = document.getElementById('mostCommonWords'); // role=status
-const leastCommonWordsEl = document.getElementById('leastCommonWords'); // role=status
+const mostCommonWordsEl = document.getElementById('mostCommonWords'); // visual summary region
+const leastCommonWordsEl = document.getElementById('leastCommonWords'); // visual summary region
+const resultsSection = document.getElementById('results'); // used for aria-busy
+const srAnnouncer = document.getElementById('sr-announcer'); // single, atomic announcer
 
 /* Autofocus management: focus the main textarea on initial page load for better UX
    but avoid forcing the on-screen keyboard on mobile devices. Use preventScroll
@@ -35,6 +37,11 @@ if (form) form.addEventListener('submit', function (e) { e.preventDefault(); ana
 function analyzeWordLengths() {
     let input = document.getElementById('inputText').value || '';
 
+    // Signal that results are being prepared so assistive technologies
+    // know the region is busy. Also prevent duplicate submits by disabling the button.
+    if (resultsSection) resultsSection.setAttribute('aria-busy', 'true');
+    if (analyzeBtn) { analyzeBtn.disabled = true; analyzeBtn.setAttribute('aria-disabled', 'true'); }
+
     // Normalize typographic apostrophes to straight ASCII apostrophe
     input = input.replace(/[’‘]/g, "'");
 
@@ -58,7 +65,8 @@ function analyzeWordLengths() {
         wordPattern = /[A-Za-z0-9]+(?:['-][A-Za-z0-9]+)*/g;
     }
     const words = input.match(wordPattern) || [];
-    // Clear previous results
+    // Clear previous results (visual only). We'll repopulate using a DocumentFragment
+    // to avoid many incremental DOM updates which can trigger verbose screen-reader output.
     clearResults();
 
     if (!words.length) {
@@ -71,6 +79,8 @@ function analyzeWordLengths() {
     let wordLengthsStr = '';
 	const wordsLength = words.length;
 
+    // Build list items in a fragment first (better performance, single append)
+    const frag = document.createDocumentFragment();
     for (let i = 0; i < wordsLength; i++) {
         const word = words[i];
         // Count Unicode code points so characters like emoji are counted as one
@@ -79,7 +89,7 @@ function analyzeWordLengths() {
         // Build list item for the <ul>
         const li = document.createElement('li');
         li.textContent = `${word} (${len})`;
-        wordLengthsEl.appendChild(li);
+        frag.appendChild(li);
 
         if (len > maxLen) {
             maxLen = len;
@@ -94,14 +104,27 @@ function analyzeWordLengths() {
             minWords.push(word);
         }
     }
+    // Append fragment once to minimize DOM updates
+    if (wordLengthsEl) wordLengthsEl.appendChild(frag);
 
     // Deduplicate words while preserving first-seen order
     const uniqueMax = [...new Set(maxWords)];
     const uniqueMin = [...new Set(minWords)];
 
     // Update status regions (role=status + aria-live will announce changes)
-    mostCommonWordsEl.textContent = uniqueMax.map(function (w) { return `${w} (${maxLen})`; }).join(', ');
-    leastCommonWordsEl.textContent = uniqueMin.map(function (w) { return `${w} (${minLen})`; }).join(', ');
+    mostCommonWordsEl.textContent = uniqueMax.map(function (w) { return `${w} (${maxLen})`; }).join(', ') || 'N/A';
+    leastCommonWordsEl.textContent = uniqueMin.map(function (w) { return `${w} (${minLen})`; }).join(', ') || 'N/A';
+
+    // Compose one concise announcement for screen readers and put it into the
+    // single atomic live region (#sr-announcer). This prevents reading every
+    // single list item and gives a predictable summary.
+    if (srAnnouncer) {
+        srAnnouncer.textContent = `Analysis complete. ${words.length} ${words.length === 1 ? 'word' : 'words'}. Longest: ${uniqueMax.join(', ')} (${maxLen}). Shortest: ${uniqueMin.join(', ')} (${minLen}).`;
+    }
+
+    // Reset busy state and re-enable the button
+    if (resultsSection) resultsSection.setAttribute('aria-busy', 'false');
+    if (analyzeBtn) { analyzeBtn.disabled = false; analyzeBtn.removeAttribute('aria-disabled'); }
 }
 
 function clearResults() {
@@ -111,6 +134,8 @@ function clearResults() {
     }
     if (mostCommonWordsEl) mostCommonWordsEl.textContent = '';
     if (leastCommonWordsEl) leastCommonWordsEl.textContent = '';
+    // Clear announcer as well to avoid stale text being read on focus
+    if (srAnnouncer) srAnnouncer.textContent = '';
 }
 
 function renderNoWordsFound() {
@@ -121,4 +146,6 @@ function renderNoWordsFound() {
     }
     if (mostCommonWordsEl) mostCommonWordsEl.textContent = 'N/A';
     if (leastCommonWordsEl) leastCommonWordsEl.textContent = 'N/A';
+    // Announce the empty result to screen readers via the single announcer
+    if (srAnnouncer) srAnnouncer.textContent = 'No words found.';
 }
