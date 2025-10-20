@@ -114,7 +114,7 @@ let spinnerElem = document.getElementById(`loadingSpinner`);
 // Helper function for sanitizing and splitting input text
 function getSanitizedWords(input) {
   // Trims, lowercases, and extracts words using regex
-  return input.trim().toLowerCase().match(/\b\w+\b/g) || [];
+  return input.trim().toLowerCase().match(/\b\w+\b/g) ?? [];
 }
 
 // Optimized function for large scale data sets with keyboard trigger access and DOM event access like "click"
@@ -298,13 +298,13 @@ function benchmarkFunctionsDOM(functionsWithArgs) {
     let totalTime = 0;
     for (let run = 0; run < NUM_RUNS; run++) {
       const start = performance.now();
-      fn(...(args || []));
+  fn(...(args ?? []));
       const end = performance.now();
       totalTime += (end - start);
     }
     const avgTime = totalTime / NUM_RUNS;
     results.push({
-      name: fn.name || 'anonymous',
+  name: fn.name || 'anonymous',
       time: avgTime.toFixed(3)
     });
   }
