@@ -26,12 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Wire events: use the form's submit event as the single source of truth.
-// The button in the form is a submit button, so pressing Enter in the textarea
-// or clicking the button both trigger this handler. This avoids double
-// invocation that can happen when both the button click and form submit
-// separately call the same function.
-if (form) form.addEventListener('submit', function (e) { e.preventDefault(); analyzeWordLengths(); });
+
+form?.addEventListener('submit', function (e) { e.preventDefault(); analyzeWordLengths(); });
 
 
 function analyzeWordLengths() {
@@ -39,8 +35,13 @@ function analyzeWordLengths() {
 
     // Signal that results are being prepared so assistive technologies
     // know the region is busy. Also prevent duplicate submits by disabling the button.
-    if (resultsSection) resultsSection.setAttribute('aria-busy', 'true');
-    if (analyzeBtn) { analyzeBtn.disabled = true; analyzeBtn.setAttribute('aria-disabled', 'true'); }
+    resultsSection?.setAttribute('aria-busy', 'true');
+    // Use optional chaining for safer DOM method calls. Setting the disabled
+    // property must still check the element exists because it's an assignment.
+    if (analyzeBtn) {
+        analyzeBtn.disabled = true;
+        analyzeBtn.setAttribute?.('aria-disabled', 'true');
+    }
 
     // Normalize typographic apostrophes to straight ASCII apostrophe
     input = input.replace(/[’‘]/g, "'");
@@ -105,15 +106,15 @@ function analyzeWordLengths() {
         }
     }
     // Append fragment once to minimize DOM updates
-    if (wordLengthsEl) wordLengthsEl.appendChild(frag);
+    wordLengthsEl?.appendChild(frag);
 
     // Deduplicate words while preserving first-seen order
     const uniqueMax = [...new Set(maxWords)];
     const uniqueMin = [...new Set(minWords)];
 
     // Update status regions (role=status + aria-live will announce changes)
-    mostCommonWordsEl.textContent = uniqueMax.map(function (w) { return `${w} (${maxLen})`; }).join(', ') || 'N/A';
-    leastCommonWordsEl.textContent = uniqueMin.map(function (w) { return `${w} (${minLen})`; }).join(', ') || 'N/A';
+    (mostCommonWordsEl) && (mostCommonWordsEl.textContent = uniqueMax.map(function (w) { return `${w} (${maxLen})`; }).join(', ') || 'N/A');
+    (leastCommonWordsEl) && (leastCommonWordsEl.textContent = uniqueMin.map(function (w) { return `${w} (${minLen})`; }).join(', ') || 'N/A');
 
     // Compose one concise announcement for screen readers and put it into the
     // single atomic live region (#sr-announcer). This prevents reading every
@@ -123,8 +124,11 @@ function analyzeWordLengths() {
     }
 
     // Reset busy state and re-enable the button
-    if (resultsSection) resultsSection.setAttribute('aria-busy', 'false');
-    if (analyzeBtn) { analyzeBtn.disabled = false; analyzeBtn.removeAttribute('aria-disabled'); }
+    resultsSection?.setAttribute('aria-busy', 'false');
+    if (analyzeBtn) {
+        analyzeBtn.disabled = false;
+        analyzeBtn.removeAttribute?.('aria-disabled');
+    }
 }
 
 function clearResults() {
