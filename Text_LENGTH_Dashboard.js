@@ -31,7 +31,7 @@ form?.addEventListener('submit', function (e) { e.preventDefault(); analyzeWordL
 
 
 function analyzeWordLengths() {
-    let input = document.getElementById('inputText').value || '';
+    let input = document.getElementById('inputText').value ?? '';
 
     // Signal that results are being prepared so assistive technologies
     // know the region is busy. Also prevent duplicate submits by disabling the button.
@@ -65,7 +65,7 @@ function analyzeWordLengths() {
         // a hard crash and keeps functionality for ASCII, apostrophes, and hyphens.
         wordPattern = /[A-Za-z0-9]+(?:['-][A-Za-z0-9]+)*/g;
     }
-    const words = input.match(wordPattern) || [];
+    const words = input.match(wordPattern) ?? [];
     // Clear previous results (visual only). We'll repopulate using a DocumentFragment
     // to avoid many incremental DOM updates which can trigger verbose screen-reader output.
     clearResults();

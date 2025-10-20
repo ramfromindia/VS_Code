@@ -9,7 +9,7 @@ self.onmessage = function(e) {
 
   // Count occurrences of each word
   for (const word of words) {
-    freqMap.set(word, (freqMap.get(word) || 0) + 1);
+    freqMap.set(word, (freqMap.get(word) ?? 0) + 1);
   }
 
   // Convert map to array and sort by frequency descending
