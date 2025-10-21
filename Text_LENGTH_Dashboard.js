@@ -33,12 +33,15 @@ form?.addEventListener('submit', function (e) { e.preventDefault(); analyzeWordL
 function analyzeWordLengths() {
     let input = document.getElementById('inputText').value ?? '';
 
+    // helper: Unicode code-point aware length
+    const getWordLen = (w) => Array.from(w).length;
+
     // Signal that results are being prepared so assistive technologies
     // know the region is busy. Also prevent duplicate submits by disabling the button.
     resultsSection?.setAttribute('aria-busy', 'true');
     if (analyzeBtn) {
         analyzeBtn.disabled = true;
-        analyzeBtn.setAttribute?.('aria-disabled', 'true');
+        analyzeBtn.setAttribute('aria-disabled', 'true');
     }
 
     // Normalize typographic apostrophes to straight ASCII apostrophe
@@ -101,28 +104,8 @@ function analyzeWordLengths() {
         if (srAnnouncer) srAnnouncer.textContent = 'Worker unavailable; running analysis on the main thread.';
         // Remove the warning after a short time
         setTimeout(function () { try { if (warn && warn.parentNode) warn.parentNode.removeChild(warn); } catch (e) {} }, 4000);
-        // process synchronously using same algorithm as before
-        for (let i = 0; i < words.length; i++) {
-            const word = words[i];
-            const len = Array.from(word).length;
-            const li = document.createElement('li');
-            li.textContent = `${word} (${len})`;
-            frag.appendChild(li);
-
-            if (len > globalMax) {
-                globalMax = len; globalMaxWords.length = 0; globalMaxWords.push(word);
-            } else if (len === globalMax) {
-                globalMaxWords.push(word);
-            }
-            if (len < globalMin) {
-                globalMin = len; globalMinWords.length = 0; globalMinWords.push(word);
-            } else if (len === globalMin) {
-                globalMinWords.push(word);
-            }
-        }
-        // Append results and finalize
-        wordLengthsEl?.appendChild(frag);
-        finalizeAndAnnounce(words.length, globalMin, globalMinWords, globalMax, globalMaxWords);
+        // process synchronously using the shared helper
+        processSyncFromIndex(0);
         return;
     }
 
@@ -166,23 +149,18 @@ function analyzeWordLengths() {
             console.error('Worker error:', msg.error);
             // fallback: terminate worker and sync process the rest (simpler fallback path)
             try { worker.terminate(); } catch (e) {}
-            // process synchronously remaining chunks (rare path)
-            // flatten remaining chunks into a single array slice and process
+            // process remaining synchronously using shared helper
             const processedCount = words.length - (remaining * CHUNK_SIZE);
-            for (let i = processedCount; i < words.length; i++) {
-                const word = words[i];
-                const len = Array.from(word).length;
-                const li = document.createElement('li');
-                li.textContent = `${word} (${len})`;
-                frag.appendChild(li);
-                if (len > globalMax) { globalMax = len; globalMaxWords.length = 0; globalMaxWords.push(word); }
-                else if (len === globalMax) { globalMaxWords.push(word); }
-                if (len < globalMin) { globalMin = len; globalMinWords.length = 0; globalMinWords.push(word); }
-                else if (len === globalMin) { globalMinWords.push(word); }
-            }
-            wordLengthsEl?.appendChild(frag);
-            finalizeAndAnnounce(words.length, globalMin, globalMinWords, globalMax, globalMaxWords);
+            processSyncFromIndex(processedCount);
         }
+    };
+
+    // If the worker throws an error event (runtime error), handle fallback similarly
+    worker.onerror = function (ev) {
+        console.error('Worker runtime error:', ev && (ev.message || ev));
+        try { worker.terminate(); } catch (e) {}
+        const processedCount = words.length - (remaining * CHUNK_SIZE);
+        processSyncFromIndex(processedCount);
     };
 
     // Send each chunk to the worker
@@ -206,8 +184,26 @@ function analyzeWordLengths() {
         resultsSection?.setAttribute('aria-busy', 'false');
         if (analyzeBtn) {
             analyzeBtn.disabled = false;
-            analyzeBtn.removeAttribute?.('aria-disabled');
+            analyzeBtn.removeAttribute('aria-disabled');
         }
+    }
+
+    // Helper to synchronously process words from a given index to the end.
+    function processSyncFromIndex(startIndex) {
+        for (let i = startIndex; i < words.length; i++) {
+            const word = words[i];
+            const len = getWordLen(word);
+            const li = document.createElement('li');
+            li.textContent = `${word} (${len})`;
+            frag.appendChild(li);
+
+            if (len > globalMax) { globalMax = len; globalMaxWords.length = 0; globalMaxWords.push(word); }
+            else if (len === globalMax) { globalMaxWords.push(word); }
+            if (len < globalMin) { globalMin = len; globalMinWords.length = 0; globalMinWords.push(word); }
+            else if (len === globalMin) { globalMinWords.push(word); }
+        }
+        wordLengthsEl?.appendChild(frag);
+        finalizeAndAnnounce(words.length, globalMin, globalMinWords, globalMax, globalMaxWords);
     }
 }
 
