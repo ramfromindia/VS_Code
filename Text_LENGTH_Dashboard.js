@@ -36,8 +36,6 @@ function analyzeWordLengths() {
     // Signal that results are being prepared so assistive technologies
     // know the region is busy. Also prevent duplicate submits by disabling the button.
     resultsSection?.setAttribute('aria-busy', 'true');
-    // Use optional chaining for safer DOM method calls. Setting the disabled
-    // property must still check the element exists because it's an assignment.
     if (analyzeBtn) {
         analyzeBtn.disabled = true;
         analyzeBtn.setAttribute?.('aria-disabled', 'true');
@@ -52,22 +50,15 @@ function analyzeWordLengths() {
     // in the ASCII range and still preserves internal hyphens/apostrophes.
     let wordPattern;
     try {
-    // Test whether the environment supports \p{L} in RegExp (Unicode property escapes).
-    // Construct the regex using the string form so the parser doesn't see an unsupported
-    // \p escape at parse-time. Using a literal like /\p{L}/u would cause a SyntaxError
-    // on older engines that don't support Unicode property escapes, so we build it at
-    // runtime: if this throws, the engine lacks \p support and we fall back to ASCII.
-    new RegExp("\\p{L}", "u");
+        new RegExp("\\p{L}", "u");
         wordPattern = /[\p{L}\p{N}]+(?:['-][\p{L}\p{N}]+)*/gu;
     } catch (e) {
-        // Fallback for environments without Unicode property escape support.
-        // Note: fallback won't match non-Latin scripts correctly, but avoids
-        // a hard crash and keeps functionality for ASCII, apostrophes, and hyphens.
         wordPattern = /[A-Za-z0-9]+(?:['-][A-Za-z0-9]+)*/g;
     }
+
+    // Tokenize on main thread, then send chunks to the worker for processing.
     const words = input.match(wordPattern) ?? [];
-    // Clear previous results (visual only). We'll repopulate using a DocumentFragment
-    // to avoid many incremental DOM updates which can trigger verbose screen-reader output.
+    // Clear previous results (visual only).
     clearResults();
 
     if (!words.length) {
@@ -75,59 +66,148 @@ function analyzeWordLengths() {
         return;
     }
 
-    let minLen = Infinity, maxLen = 0;
-    let minWords = [], maxWords = [];
-    let wordLengthsStr = '';
-	const wordsLength = words.length;
+    // Chunking strategy: send moderate-sized chunks to the worker to avoid
+    // large messages while keeping overhead low. Tunable size depending on use-case.
+    const CHUNK_SIZE = 1000; // words per chunk (adjustable)
+    function chunkArray(arr, size) {
+        const out = [];
+        for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+        return out;
+    }
 
-    // Build list items in a fragment first (better performance, single append)
+    const chunks = chunkArray(words, CHUNK_SIZE);
+
+    // Aggregation state
     const frag = document.createDocumentFragment();
-    for (let i = 0; i < wordsLength; i++) {
-        const word = words[i];
-        // Count Unicode code points so characters like emoji are counted as one
-        const len = Array.from(word).length;
+    let globalMin = Infinity, globalMax = 0;
+    const globalMinWords = [];
+    const globalMaxWords = [];
 
-        // Build list item for the <ul>
-        const li = document.createElement('li');
-        li.textContent = `${word} (${len})`;
-        frag.appendChild(li);
+    let remaining = chunks.length;
 
-        if (len > maxLen) {
-            maxLen = len;
-            maxWords = [word];
-        } else if (len === maxLen) {
-            maxWords.push(word);
+    // Create worker and wire message handler
+    let worker;
+    try {
+        worker = new Worker('textLengthWorker.js');
+    } catch (err) {
+        // If Worker not available, show a brief DOM-visible warning so the developer
+        // can see that the worker fallback was used (useful when console isn't handy).
+        const warn = document.createElement('div');
+        warn.textContent = 'Web Worker unavailable — falling back to main-thread processing.';
+        warn.setAttribute('role', 'status');
+        warn.style.cssText = 'background:#fff3cd;color:#856404;border:1px solid #ffeeba;padding:6px;margin:6px 0;border-radius:3px;font-size:90%;';
+        if (resultsSection) resultsSection.insertBefore(warn, resultsSection.firstChild);
+        // Announce to screen readers briefly
+        if (srAnnouncer) srAnnouncer.textContent = 'Worker unavailable; running analysis on the main thread.';
+        // Remove the warning after a short time
+        setTimeout(function () { try { if (warn && warn.parentNode) warn.parentNode.removeChild(warn); } catch (e) {} }, 4000);
+        // process synchronously using same algorithm as before
+        for (let i = 0; i < words.length; i++) {
+            const word = words[i];
+            const len = Array.from(word).length;
+            const li = document.createElement('li');
+            li.textContent = `${word} (${len})`;
+            frag.appendChild(li);
+
+            if (len > globalMax) {
+                globalMax = len; globalMaxWords.length = 0; globalMaxWords.push(word);
+            } else if (len === globalMax) {
+                globalMaxWords.push(word);
+            }
+            if (len < globalMin) {
+                globalMin = len; globalMinWords.length = 0; globalMinWords.push(word);
+            } else if (len === globalMin) {
+                globalMinWords.push(word);
+            }
         }
-        if (len < minLen) {
-            minLen = len;
-            minWords = [word];
-        } else if (len === minLen) {
-            minWords.push(word);
+        // Append results and finalize
+        wordLengthsEl?.appendChild(frag);
+        finalizeAndAnnounce(words.length, globalMin, globalMinWords, globalMax, globalMaxWords);
+        return;
+    }
+
+    worker.onmessage = function (ev) {
+        const msg = ev.data || {};
+        if (msg.type === 'result') {
+            // Append list items for this chunk
+            const items = msg.items || [];
+            for (let i = 0; i < items.length; i++) {
+                const it = items[i];
+                const li = document.createElement('li');
+                li.textContent = `${it.word} (${it.len})`;
+                frag.appendChild(li);
+            }
+
+            // Merge chunk min/max into global min/max while preserving first-seen order
+            if (typeof msg.maxLen === 'number') {
+                if (msg.maxLen > globalMax) {
+                    globalMax = msg.maxLen; globalMaxWords.length = 0; Array.prototype.push.apply(globalMaxWords, msg.maxWords || []);
+                } else if (msg.maxLen === globalMax) {
+                    Array.prototype.push.apply(globalMaxWords, msg.maxWords || []);
+                }
+            }
+            if (typeof msg.minLen === 'number') {
+                if (msg.minLen < globalMin) {
+                    globalMin = msg.minLen; globalMinWords.length = 0; Array.prototype.push.apply(globalMinWords, msg.minWords || []);
+                } else if (msg.minLen === globalMin) {
+                    Array.prototype.push.apply(globalMinWords, msg.minWords || []);
+                }
+            }
+
+            remaining -= 1;
+            if (remaining <= 0) {
+                // All chunks processed
+                wordLengthsEl?.appendChild(frag);
+                // Terminate worker for cleanup
+                try { worker.terminate(); } catch (e) { /* ignore */ }
+                finalizeAndAnnounce(words.length, globalMin, globalMinWords, globalMax, globalMaxWords);
+            }
+        } else if (msg.type === 'error') {
+            console.error('Worker error:', msg.error);
+            // fallback: terminate worker and sync process the rest (simpler fallback path)
+            try { worker.terminate(); } catch (e) {}
+            // process synchronously remaining chunks (rare path)
+            // flatten remaining chunks into a single array slice and process
+            const processedCount = words.length - (remaining * CHUNK_SIZE);
+            for (let i = processedCount; i < words.length; i++) {
+                const word = words[i];
+                const len = Array.from(word).length;
+                const li = document.createElement('li');
+                li.textContent = `${word} (${len})`;
+                frag.appendChild(li);
+                if (len > globalMax) { globalMax = len; globalMaxWords.length = 0; globalMaxWords.push(word); }
+                else if (len === globalMax) { globalMaxWords.push(word); }
+                if (len < globalMin) { globalMin = len; globalMinWords.length = 0; globalMinWords.push(word); }
+                else if (len === globalMin) { globalMinWords.push(word); }
+            }
+            wordLengthsEl?.appendChild(frag);
+            finalizeAndAnnounce(words.length, globalMin, globalMinWords, globalMax, globalMaxWords);
         }
-    }
-    // Append fragment once to minimize DOM updates
-    wordLengthsEl?.appendChild(frag);
+    };
 
-    // Deduplicate words while preserving first-seen order
-    const uniqueMax = [...new Set(maxWords)];
-    const uniqueMin = [...new Set(minWords)];
-
-    // Update status regions (role=status + aria-live will announce changes)
-    (mostCommonWordsEl) && (mostCommonWordsEl.textContent = uniqueMax.map(function (w) { return `${w} (${maxLen})`; }).join(', ') || 'N/A');
-    (leastCommonWordsEl) && (leastCommonWordsEl.textContent = uniqueMin.map(function (w) { return `${w} (${minLen})`; }).join(', ') || 'N/A');
-
-    // Compose one concise announcement for screen readers and put it into the
-    // single atomic live region (#sr-announcer). This prevents reading every
-    // single list item and gives a predictable summary.
-    if (srAnnouncer) {
-        srAnnouncer.textContent = `Analysis complete. ${words.length} ${words.length === 1 ? 'word' : 'words'}. Longest: ${uniqueMax.join(', ')} (${maxLen}). Shortest: ${uniqueMin.join(', ')} (${minLen}).`;
+    // Send each chunk to the worker
+    for (let i = 0; i < chunks.length; i++) {
+        worker.postMessage({ type: 'process', words: chunks[i] });
     }
 
-    // Reset busy state and re-enable the button
-    resultsSection?.setAttribute('aria-busy', 'false');
-    if (analyzeBtn) {
-        analyzeBtn.disabled = false;
-        analyzeBtn.removeAttribute?.('aria-disabled');
+    // Finalize: update the textual summaries and announcer, and re-enable UI
+    function finalizeAndAnnounce(totalWords, minLen, minWordsArr, maxLen, maxWordsArr) {
+        // Deduplicate while preserving order
+        const uniqueMax = [...new Set(maxWordsArr)];
+        const uniqueMin = [...new Set(minWordsArr)];
+
+        (mostCommonWordsEl) && (mostCommonWordsEl.textContent = uniqueMax.map(function (w) { return `${w} (${maxLen})`; }).join(', ') || 'N/A');
+        (leastCommonWordsEl) && (leastCommonWordsEl.textContent = uniqueMin.map(function (w) { return `${w} (${minLen})`; }).join(', ') || 'N/A');
+
+        if (srAnnouncer) {
+            srAnnouncer.textContent = `Analysis complete. ${totalWords} ${totalWords === 1 ? 'word' : 'words'}. Longest: ${uniqueMax.join(', ')} (${maxLen}). Shortest: ${uniqueMin.join(', ')} (${minLen}).`;
+        }
+
+        resultsSection?.setAttribute('aria-busy', 'false');
+        if (analyzeBtn) {
+            analyzeBtn.disabled = false;
+            analyzeBtn.removeAttribute?.('aria-disabled');
+        }
     }
 }
 
