@@ -90,8 +90,17 @@ function analyzeWordLengths() {
     try {
         worker = new Worker('textLengthWorker.js');
     } catch (err) {
-        // If Worker not available, fall back to synchronous processing with minimal logic change.
-        console.warn('Web Worker unavailable, falling back to main-thread processing.', err);
+        // If Worker not available, show a brief DOM-visible warning so the developer
+        // can see that the worker fallback was used (useful when console isn't handy).
+        const warn = document.createElement('div');
+        warn.textContent = 'Web Worker unavailable — falling back to main-thread processing.';
+        warn.setAttribute('role', 'status');
+        warn.style.cssText = 'background:#fff3cd;color:#856404;border:1px solid #ffeeba;padding:6px;margin:6px 0;border-radius:3px;font-size:90%;';
+        if (resultsSection) resultsSection.insertBefore(warn, resultsSection.firstChild);
+        // Announce to screen readers briefly
+        if (srAnnouncer) srAnnouncer.textContent = 'Worker unavailable; running analysis on the main thread.';
+        // Remove the warning after a short time
+        setTimeout(function () { try { if (warn && warn.parentNode) warn.parentNode.removeChild(warn); } catch (e) {} }, 4000);
         // process synchronously using same algorithm as before
         for (let i = 0; i < words.length; i++) {
             const word = words[i];
