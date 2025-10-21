@@ -97,8 +97,8 @@ function analyzeWordLengths() {
         // can see that the worker fallback was used (useful when console isn't handy).
         const warn = document.createElement('div');
         warn.textContent = 'Web Worker unavailable — falling back to main-thread processing.';
-        warn.setAttribute('role', 'status');
-        warn.style.cssText = 'background:#fff3cd;color:#856404;border:1px solid #ffeeba;padding:6px;margin:6px 0;border-radius:3px;font-size:90%;';
+    warn.setAttribute('role', 'status');
+    warn.classList.add('worker-warning');
         if (resultsSection) resultsSection.insertBefore(warn, resultsSection.firstChild);
         // Announce to screen readers briefly
         if (srAnnouncer) srAnnouncer.textContent = 'Worker unavailable; running analysis on the main thread.';
