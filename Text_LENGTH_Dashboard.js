@@ -88,6 +88,8 @@ function analyzeWordLengths() {
 
     // Number of chunks remaining (kept in outer scope so timeout/fallback can read it)
     let remainingChunks = chunks.length;
+    // Accurate count of how many words have been processed (worker results)
+    let processedWords = 0;
 
     // Helper: cooperative async processing so main thread isn't blocked
     function processAsyncFromIndex(startIndex, batchSize = 200, delay = 0) {
@@ -152,6 +154,9 @@ function analyzeWordLengths() {
                         frag.appendChild(li);
                     }
 
+                    // Update processed words count accurately (use items length)
+                    processedWords += items.length;
+
                     // Merge chunk min/max into global min/max while preserving first-seen order
                     if (typeof msg.maxLen === 'number') {
                         if (msg.maxLen > globalMax) {
@@ -172,19 +177,19 @@ function analyzeWordLengths() {
                     remainingChunks -= 1;
                     if (remainingChunks <= 0) {
                         try { worker.terminate(); } catch (e) { /* ignore */ }
-                        resolve({ processedCount: words.length });
+                        resolve({ processedCount: processedWords });
                     }
                 } else if (msg.type === 'error') {
                     console.error('Worker error:', msg.error);
                     try { worker.terminate(); } catch (e) {}
-                    reject({ kind: 'worker-error', error: msg.error, processedCount: words.length - (remainingChunks * CHUNK_SIZE) });
+                    reject({ kind: 'worker-error', error: msg.error, processedCount: processedWords });
                 }
             };
 
             worker.onerror = function (ev) {
                 console.error('Worker runtime error:', ev && (ev.message || ev));
                 try { worker.terminate(); } catch (e) {}
-                reject({ kind: 'worker-runtime-error', error: ev, processedCount: words.length - (remainingChunks * CHUNK_SIZE) });
+                reject({ kind: 'worker-runtime-error', error: ev, processedCount: processedWords });
             };
 
             // Send each chunk to the worker
@@ -192,7 +197,7 @@ function analyzeWordLengths() {
                 try { worker.postMessage({ type: 'process', words: chunksToProcess[i] }); } catch (e) {
                     // Posting failed — terminate and reject
                     try { worker.terminate(); } catch (t) {}
-                    reject({ kind: 'postMessage-failure', error: e, processedCount: words.length - (remainingChunks * CHUNK_SIZE) });
+                    reject({ kind: 'postMessage-failure', error: e, processedCount: processedWords });
                     return;
                 }
             }
@@ -228,23 +233,24 @@ function analyzeWordLengths() {
     const WORKER_TIMEOUT_MS = 4000; // tuneable timeout
     const runner = runWorkerProcessing(chunks);
 
-    // If worker creation fails synchronously, report and fallback immediately
-    runner.promise
-        .catch(async (err) => {
-            if (err && err.kind === 'creation-failure') {
-                const warn = document.createElement('div');
-                warn.textContent = 'Web Worker unavailable — falling back to main-thread processing.';
-                warn.setAttribute('role', 'status');
-                warn.classList.add('worker-warning');
-                if (resultsSection) resultsSection.insertBefore(warn, resultsSection.firstChild);
-                if (srAnnouncer) srAnnouncer.textContent = 'Worker unavailable; running analysis on the main thread.';
-                setTimeout(function () { try { if (warn && warn.parentNode) warn.parentNode.removeChild(warn); } catch (e) {} }, 4000);
-                await processAsyncFromIndex(0);
-                return;
-            }
-            // For other immediate rejections, let the outer Promise.race handle them (rethrow)
-            throw err;
-        });
+    // Wrap the runner.promise to handle creation-failure in-place so Promise.race
+    // doesn't immediately reject and cause duplicate fallback work.
+    runner.promise = runner.promise.catch(async (err) => {
+        if (err && err.kind === 'creation-failure') {
+            const warn = document.createElement('div');
+            warn.textContent = 'Web Worker unavailable  falling back to main-thread processing.';
+            warn.setAttribute('role', 'status');
+            warn.classList.add('worker-warning');
+            if (resultsSection) resultsSection.insertBefore(warn, resultsSection.firstChild);
+            if (srAnnouncer) srAnnouncer.textContent = 'Worker unavailable; running analysis on the main thread.';
+            setTimeout(function () { try { if (warn && warn.parentNode) warn.parentNode.removeChild(warn); } catch (e) {} }, 4000);
+            await processAsyncFromIndex(0);
+            // Signal to the rest of the flow that the fallback already handled work.
+            return { fallbackHandled: true };
+        }
+        // Re-throw other errors so the outer catch can handle them.
+        throw err;
+    });
 
     // Race the worker against a timeout — if timeout wins, terminate worker and fallback
     const timeoutPromise = new Promise((resolve) => {
@@ -253,6 +259,10 @@ function analyzeWordLengths() {
 
     Promise.race([runner.promise, timeoutPromise])
         .then(async (result) => {
+            // If the wrapped promise signalled that fallback already handled the work,
+            // stop here to avoid duplicate processing.
+            if (result && result.fallbackHandled) return;
+
             if (result && result.timedOut) {
                 // Worker didn't finish in time — terminate and fallback asynchronously
                 runner.terminate();
@@ -266,7 +276,7 @@ function analyzeWordLengths() {
         .catch(async (err) => {
             // Worker failed; fall back to async main-thread processing for remainder
             console.error('Worker failed or rejected:', err);
-            const processedCount = (err && err.processedCount) ? err.processedCount : 0;
+            const processedCount = (err && err.processedCount) ? err.processedCount : processedWords;
             await processAsyncFromIndex(processedCount);
         })
         .finally(() => {
