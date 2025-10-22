@@ -44,6 +44,21 @@ async function analyzeWordLengths() {
         analyzeBtn.setAttribute('aria-disabled', 'true');
     }
 
+    // If a previous worker/processing run is still active, terminate/abort it so
+    // we don't get cross-run messages or DOM updates.
+    try {
+        if (typeof window !== 'undefined' && window.__TextLength_currentRunner && typeof window.__TextLength_currentRunner.terminate === 'function') {
+            try { window.__TextLength_currentRunner.terminate(); } catch (e) {}
+        }
+    } catch (e) {}
+    try { if (typeof window !== 'undefined') window.__TextLength_currentRunner = null; } catch (e) {}
+    try {
+        if (typeof window !== 'undefined' && typeof window.__TextLength_abortMainProcessing === 'function') {
+            try { window.__TextLength_abortMainProcessing(); } catch (e) {}
+        }
+    } catch (e) {}
+    try { if (typeof window !== 'undefined') window.__TextLength_abortMainProcessing = null; } catch (e) {}
+
     // Attempt to use the external tokenize module if available. This uses
     // a dynamic import where supported; otherwise falls back to a local
     // implementation (keeps behavior identical to previous single-file code).
@@ -107,7 +122,12 @@ async function analyzeWordLengths() {
     function processAsyncFromIndex(startIndex, batchSize = 200, delay = 0) {
         return new Promise((resolve) => {
             let i = startIndex;
+            let aborted = false;
+            // expose an abort function for this run so subsequent runs can cancel it
+            try { if (typeof window !== 'undefined') window.__TextLength_abortMainProcessing = function () { aborted = true; }; } catch (e) {}
+
             function step() {
+                if (aborted) { try { if (typeof window !== 'undefined') window.__TextLength_abortMainProcessing = null; } catch (e) {} ; resolve(); return; }
                 const end = Math.min(i + batchSize, words.length);
                 for (; i < end; i++) {
                     const word = words[i];
@@ -136,6 +156,7 @@ async function analyzeWordLengths() {
                 } else {
                     // Ensure any remaining fragment is appended
                     if (wordLengthsEl && frag.childNodes.length > 0) wordLengthsEl.appendChild(frag);
+                    try { if (typeof window !== 'undefined') window.__TextLength_abortMainProcessing = null; } catch (e) {}
                     resolve();
                 }
             }
@@ -143,82 +164,103 @@ async function analyzeWordLengths() {
         });
     }
 
-    // Helper: run worker and return Promise that resolves when done; also provide terminate()
-    function runWorkerProcessing(chunksToProcess) {
-        let worker;
-
-        const p = new Promise((resolve, reject) => {
-            try {
-                worker = new Worker('textLengthWorker.js');
-            } catch (err) {
-                reject({ kind: 'creation-failure', error: err });
-                return;
+    // Prefer external worker runner module if available, otherwise fall back
+    // to the inline implementation below (which keeps original behavior).
+    async function getWorkerRunner(chunks, options = {}) {
+        // If a window-provided runner exists, use it
+        try {
+            if (typeof window !== 'undefined' && window.Text_LENGTH_workerRunner && typeof window.Text_LENGTH_workerRunner.runWorker === 'function') {
+                return window.Text_LENGTH_workerRunner.runWorker(chunks, undefined, options);
             }
+        } catch (e) { /* ignore */ }
 
-            worker.onmessage = function (ev) {
-                const msg = ev.data || {};
-                if (msg.type === 'result') {
-                    const items = msg.items || [];
-                    for (let i = 0; i < items.length; i++) {
-                        const it = items[i];
-                        const li = document.createElement('li');
-                        li.textContent = `${it.word} (${it.len})`;
-                        frag.appendChild(li);
-                    }
+        // Try dynamic import
+        try {
+            const mod = await import('./Text_LENGTH_workerRunner.js');
+            if (mod && typeof mod.runWorker === 'function') return mod.runWorker(chunks, undefined, options);
+        } catch (e) {
+            // import failed; fall back
+        }
 
-                    // Update processed words count accurately (use items length)
-                    processedWords += items.length;
+        // Inline fallback (original implementation) — keeps same contract
+        function runWorkerProcessing(chunksToProcess) {
+            let worker;
 
-                    // Merge chunk min/max into global min/max while preserving first-seen order
-                    if (typeof msg.maxLen === 'number') {
-                        if (msg.maxLen > globalMax) {
-                            globalMax = msg.maxLen; globalMaxWords.length = 0; Array.prototype.push.apply(globalMaxWords, msg.maxWords || []);
-                        } else if (msg.maxLen === globalMax) {
-                            Array.prototype.push.apply(globalMaxWords, msg.maxWords || []);
-                        }
-                    }
-                    if (typeof msg.minLen === 'number') {
-                        if (msg.minLen < globalMin) {
-                            globalMin = msg.minLen; globalMinWords.length = 0; Array.prototype.push.apply(globalMinWords, msg.minWords || []);
-                        } else if (msg.minLen === globalMin) {
-                            Array.prototype.push.apply(globalMinWords, msg.minWords || []);
-                        }
-                    }
-
-                    // One chunk processed
-                    remainingChunks -= 1;
-                    if (remainingChunks <= 0) {
-                        try { worker.terminate(); } catch (e) { /* ignore */ }
-                        resolve({ processedCount: processedWords });
-                    }
-                } else if (msg.type === 'error') {
-                    console.error('Worker error:', msg.error);
-                    try { worker.terminate(); } catch (e) {}
-                    reject({ kind: 'worker-error', error: msg.error, processedCount: processedWords });
-                }
-            };
-
-            worker.onerror = function (ev) {
-                console.error('Worker runtime error:', ev && (ev.message || ev));
-                try { worker.terminate(); } catch (e) {}
-                reject({ kind: 'worker-runtime-error', error: ev, processedCount: processedWords });
-            };
-
-            // Send each chunk to the worker
-            for (let i = 0; i < chunksToProcess.length; i++) {
-                try { worker.postMessage({ type: 'process', words: chunksToProcess[i] }); } catch (e) {
-                    // Posting failed — terminate and reject
-                    try { worker.terminate(); } catch (t) {}
-                    reject({ kind: 'postMessage-failure', error: e, processedCount: processedWords });
+            const p = new Promise((resolve, reject) => {
+                try {
+                    worker = new Worker('textLengthWorker.js');
+                } catch (err) {
+                    reject({ kind: 'creation-failure', error: err });
                     return;
                 }
-            }
-        });
 
-        return {
-            promise: p,
-            terminate: function () { try { if (worker) worker.terminate(); } catch (e) {} }
-        };
+                worker.onmessage = function (ev) {
+                    const msg = ev.data || {};
+                    if (msg.type === 'result') {
+                        const items = msg.items || [];
+                        for (let i = 0; i < items.length; i++) {
+                            const it = items[i];
+                            const li = document.createElement('li');
+                            li.textContent = `${it.word} (${it.len})`;
+                            frag.appendChild(li);
+                        }
+
+                        // Update processed words count accurately (use items length)
+                        processedWords += items.length;
+
+                        // Merge chunk min/max into global min/max while preserving first-seen order
+                        if (typeof msg.maxLen === 'number') {
+                            if (msg.maxLen > globalMax) {
+                                globalMax = msg.maxLen; globalMaxWords.length = 0; Array.prototype.push.apply(globalMaxWords, msg.maxWords || []);
+                            } else if (msg.maxLen === globalMax) {
+                                Array.prototype.push.apply(globalMaxWords, msg.maxWords || []);
+                            }
+                        }
+                        if (typeof msg.minLen === 'number') {
+                            if (msg.minLen < globalMin) {
+                                globalMin = msg.minLen; globalMinWords.length = 0; Array.prototype.push.apply(globalMinWords, msg.minWords || []);
+                            } else if (msg.minLen === globalMin) {
+                                Array.prototype.push.apply(globalMinWords, msg.minWords || []);
+                            }
+                        }
+
+                        // One chunk processed
+                        remainingChunks -= 1;
+                        if (remainingChunks <= 0) {
+                            try { worker.terminate(); } catch (e) { /* ignore */ }
+                            resolve({ processedCount: processedWords });
+                        }
+                    } else if (msg.type === 'error') {
+                        console.error('Worker error:', msg.error);
+                        try { worker.terminate(); } catch (e) {}
+                        reject({ kind: 'worker-error', error: msg.error, processedCount: processedWords });
+                    }
+                };
+
+                worker.onerror = function (ev) {
+                    console.error('Worker runtime error:', ev && (ev.message || ev));
+                    try { worker.terminate(); } catch (e) {}
+                    reject({ kind: 'worker-runtime-error', error: ev, processedCount: processedWords });
+                };
+
+                // Send each chunk to the worker
+                for (let i = 0; i < chunksToProcess.length; i++) {
+                    try { worker.postMessage({ type: 'process', words: chunksToProcess[i] }); } catch (e) {
+                        // Posting failed — terminate and reject
+                        try { worker.terminate(); } catch (t) {}
+                        reject({ kind: 'postMessage-failure', error: e, processedCount: processedWords });
+                        return;
+                    }
+                }
+            });
+
+            return {
+                promise: p,
+                terminate: function () { try { if (worker) worker.terminate(); } catch (e) {} }
+            };
+        }
+
+        return runWorkerProcessing(chunks);
     }
 
     // Finalize: update the textual summaries and announcer, and re-enable UI
@@ -243,7 +285,45 @@ async function analyzeWordLengths() {
 
     // Attempt to run worker processing and fall back to async main-thread processing on failure or timeout
     const WORKER_TIMEOUT_MS = 4000; // tuneable timeout
-    const runner = runWorkerProcessing(chunks);
+    // Handler to process worker messages and keep aggregation/rendering identical
+    function workerMessageHandler(msg) {
+        if (!msg) return;
+        // Ensure we're only handling messages for the currently active runner
+        try { if (typeof window !== 'undefined' && window.__TextLength_currentRunner !== runner) return; } catch (e) { }
+        if (msg.type === 'result') {
+            const items = msg.items || [];
+            for (let i = 0; i < items.length; i++) {
+                const it = items[i];
+                const li = document.createElement('li');
+                li.textContent = `${it.word} (${it.len})`;
+                frag.appendChild(li);
+            }
+
+            // Update processed words count accurately (use items length)
+            processedWords += items.length;
+
+            // Merge chunk min/max into global min/max while preserving first-seen order
+            if (typeof msg.maxLen === 'number') {
+                if (msg.maxLen > globalMax) {
+                    globalMax = msg.maxLen; globalMaxWords.length = 0; Array.prototype.push.apply(globalMaxWords, msg.maxWords || []);
+                } else if (msg.maxLen === globalMax) {
+                    Array.prototype.push.apply(globalMaxWords, msg.maxWords || []);
+                }
+            }
+            if (typeof msg.minLen === 'number') {
+                if (msg.minLen < globalMin) {
+                    globalMin = msg.minLen; globalMinWords.length = 0; Array.prototype.push.apply(globalMinWords, msg.minWords || []);
+                } else if (msg.minLen === globalMin) {
+                    Array.prototype.push.apply(globalMinWords, msg.minWords || []);
+                }
+            }
+        } else if (msg.type === 'error') {
+            console.error('Worker error:', msg.error);
+        }
+    }
+
+    const runner = await getWorkerRunner(chunks, { onMessage: workerMessageHandler });
+    try { if (typeof window !== 'undefined') window.__TextLength_currentRunner = runner; } catch (e) {}
 
     // Wrap the runner.promise to handle creation-failure in-place so Promise.race
     // doesn't immediately reject and cause duplicate fallback work.
