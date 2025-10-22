@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
 form?.addEventListener('submit', function (e) { e.preventDefault(); analyzeWordLengths(); });
 
 
-function analyzeWordLengths() {
+async function analyzeWordLengths() {
     let input = document.getElementById('inputText').value ?? '';
 
     // helper: Unicode code-point aware length
@@ -44,23 +44,35 @@ function analyzeWordLengths() {
         analyzeBtn.setAttribute('aria-disabled', 'true');
     }
 
-    // Normalize typographic apostrophes to straight ASCII apostrophe
-    input = input.replace(/[’‘]/g, "'");
+    // Attempt to use the external tokenize module if available. This uses
+    // a dynamic import where supported; otherwise falls back to a local
+    // implementation (keeps behavior identical to previous single-file code).
+    async function getTokens(s) {
+        // Prefer window-attached module (if loader included it)
+        try {
+            if (typeof window !== 'undefined' && window.Text_LENGTH_tokenize && typeof window.Text_LENGTH_tokenize.tokenize === 'function') {
+                return window.Text_LENGTH_tokenize.tokenize(s);
+            }
+        } catch (e) { /* ignore */ }
 
-    // Build a word pattern. Prefer Unicode property escapes if supported,
-    // otherwise fall back to an ASCII-safe pattern to avoid runtime SyntaxError
-    // on older browsers (older Edge/IE). The fallback supports letters/digits
-    // in the ASCII range and still preserves internal hyphens/apostrophes.
-    let wordPattern;
-    try {
-        new RegExp("\\p{L}", "u");
-        wordPattern = /[\p{L}\p{N}]+(?:['-][\p{L}\p{N}]+)*/gu;
-    } catch (e) {
-        wordPattern = /[A-Za-z0-9]+(?:['-][A-Za-z0-9]+)*/g;
+        // Try dynamic import (when script served as module)
+        try {
+            const mod = await import('./Text_LENGTH_tokenize.js');
+            if (mod && typeof mod.tokenize === 'function') return mod.tokenize(s);
+        } catch (e) {
+            // dynamic import failed — fall back to local
+        }
+
+        // Local fallback: normalize apostrophes and tokenization (identical logic)
+        s = s.replace(/[’‘]/g, "'");
+        let wordPattern;
+        try { new RegExp("\\p{L}", "u"); wordPattern = /[\p{L}\p{N}]+(?:['-][\p{L}\p{N}]+)*/gu; }
+        catch (e) { wordPattern = /[A-Za-z0-9]+(?:['-][A-Za-z0-9]+)*/g; }
+        return s.match(wordPattern) ?? [];
     }
 
     // Tokenize on main thread, then send chunks to the worker for processing.
-    const words = input.match(wordPattern) ?? [];
+    const words = await getTokens(input);
     // Clear previous results (visual only).
     clearResults();
 
