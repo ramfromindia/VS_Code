@@ -182,8 +182,20 @@ async function analyzeWordLengths() {
             // import failed; fall back
         }
 
-        // Inline fallback (original implementation) — keeps same contract
-        function runWorkerProcessing(chunksToProcess) {
+        // Inline fallback moved to external module for maintainability. Try dynamic
+        // import of the fallback, otherwise fall back to the old inline behavior.
+        try {
+            const mod = await import('./Text_LENGTH_Worker_fallback.js');
+            if (mod && typeof mod.runWorkerFallback === 'function') {
+                return mod.runWorkerFallback(chunks, undefined, options);
+            }
+        } catch (e) {
+            // import failed — fall back to inline old behavior below
+        }
+
+        // If dynamic import isn't available for some reason, use an inline fallback
+        // that mirrors the original behavior (keeps same contract).
+        function runWorkerProcessingFallback(chunksToProcess) {
             let worker;
 
             const p = new Promise((resolve, reject) => {
@@ -260,7 +272,7 @@ async function analyzeWordLengths() {
             };
         }
 
-        return runWorkerProcessing(chunks);
+        return runWorkerProcessingFallback(chunks);
     }
 
     // Finalize: update the textual summaries and announcer, and re-enable UI
