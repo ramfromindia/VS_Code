@@ -193,86 +193,13 @@ async function analyzeWordLengths() {
             // import failed — fall back to inline old behavior below
         }
 
-        // If dynamic import isn't available for some reason, use an inline fallback
-        // that mirrors the original behavior (keeps same contract).
-        function runWorkerProcessingFallback(chunksToProcess) {
-            let worker;
-
-            const p = new Promise((resolve, reject) => {
-                try {
-                    worker = new Worker('textLengthWorker.js');
-                } catch (err) {
-                    reject({ kind: 'creation-failure', error: err });
-                    return;
-                }
-
-                worker.onmessage = function (ev) {
-                    const msg = ev.data || {};
-                    if (msg.type === 'result') {
-                        const items = msg.items || [];
-                        for (let i = 0; i < items.length; i++) {
-                            const it = items[i];
-                            const li = document.createElement('li');
-                            li.textContent = `${it.word} (${it.len})`;
-                            frag.appendChild(li);
-                        }
-
-                        // Update processed words count accurately (use items length)
-                        processedWords += items.length;
-
-                        // Merge chunk min/max into global min/max while preserving first-seen order
-                        if (typeof msg.maxLen === 'number') {
-                            if (msg.maxLen > globalMax) {
-                                globalMax = msg.maxLen; globalMaxWords.length = 0; Array.prototype.push.apply(globalMaxWords, msg.maxWords || []);
-                            } else if (msg.maxLen === globalMax) {
-                                Array.prototype.push.apply(globalMaxWords, msg.maxWords || []);
-                            }
-                        }
-                        if (typeof msg.minLen === 'number') {
-                            if (msg.minLen < globalMin) {
-                                globalMin = msg.minLen; globalMinWords.length = 0; Array.prototype.push.apply(globalMinWords, msg.minWords || []);
-                            } else if (msg.minLen === globalMin) {
-                                Array.prototype.push.apply(globalMinWords, msg.minWords || []);
-                            }
-                        }
-
-                        // One chunk processed
-                        remainingChunks -= 1;
-                        if (remainingChunks <= 0) {
-                            try { worker.terminate(); } catch (e) { /* ignore */ }
-                            resolve({ processedCount: processedWords });
-                        }
-                    } else if (msg.type === 'error') {
-                        console.error('Worker error:', msg.error);
-                        try { worker.terminate(); } catch (e) {}
-                        reject({ kind: 'worker-error', error: msg.error, processedCount: processedWords });
-                    }
-                };
-
-                worker.onerror = function (ev) {
-                    console.error('Worker runtime error:', ev && (ev.message || ev));
-                    try { worker.terminate(); } catch (e) {}
-                    reject({ kind: 'worker-runtime-error', error: ev, processedCount: processedWords });
-                };
-
-                // Send each chunk to the worker
-                for (let i = 0; i < chunksToProcess.length; i++) {
-                    try { worker.postMessage({ type: 'process', words: chunksToProcess[i] }); } catch (e) {
-                        // Posting failed — terminate and reject
-                        try { worker.terminate(); } catch (t) {}
-                        reject({ kind: 'postMessage-failure', error: e, processedCount: processedWords });
-                        return;
-                    }
-                }
-            });
-
-            return {
-                promise: p,
-                terminate: function () { try { if (worker) worker.terminate(); } catch (e) {} }
-            };
-        }
-
-        return runWorkerProcessingFallback(chunks);
+        // The fallback implementation was moved to `Text_LENGTH_Worker_fallback.js`.
+        // If that dynamic import failed earlier, signal a creation-failure so the
+        // higher-level logic will fall back to the main-thread processing.
+        return {
+            promise: Promise.reject({ kind: 'creation-failure', error: new Error('Worker fallback module unavailable') }),
+            terminate: function () {}
+        };
     }
 
     // Finalize: update the textual summaries and announcer, and re-enable UI
