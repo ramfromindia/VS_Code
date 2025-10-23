@@ -6,25 +6,10 @@ const leastCommonWordsEl = document.getElementById('leastCommonWords'); // visua
 const resultsSection = document.getElementById('results'); // used for aria-busy
 const srAnnouncer = document.getElementById('sr-announcer'); // single, atomic announcer
 
-/* Autofocus management: focus the main textarea on initial page load for better UX
-   but avoid forcing the on-screen keyboard on mobile devices. Use preventScroll
-   where available and fall back gracefully for older browsers. */
-document.addEventListener('DOMContentLoaded', () => {
-    const ta = document.getElementById('inputText');
-    if (!ta) return;
-
-    // Basic mobile detection: avoid opening the virtual keyboard automatically
-    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-    if (!isMobile) {
-        try {
-            ta.focus({ preventScroll: true });
-        } catch (e) {
-            // Older browsers may not support the options object
-            ta.focus();
-        }
-    }
-});
+/* Autofocus and small UI helper functions were moved to
+   Text_LENGTH_helperUI.js to keep dashboard logic focused on processing.
+   That file exposes: clearResults, renderNoWordsFound, finalizeAndAnnounce
+   and also performs the initial textarea focus on DOMContentLoaded. */
 
 
 form?.addEventListener('submit', function (e) { e.preventDefault(); analyzeWordLengths(); });
@@ -88,7 +73,7 @@ async function analyzeWordLengths() {
 
     // Tokenize on main thread, then send chunks to the worker for processing.
     const words = await getTokens(input);
-    // Clear previous results (visual only).
+    // Clear previous results (visual only). Implementation moved to Text_LENGTH_helperUI.js
     clearResults();
 
     if (!words.length) {
@@ -202,25 +187,7 @@ async function analyzeWordLengths() {
         };
     }
 
-    // Finalize: update the textual summaries and announcer, and re-enable UI
-    function finalizeAndAnnounce(totalWords, minLen, minWordsArr, maxLen, maxWordsArr) {
-        // Deduplicate while preserving order
-        const uniqueMax = [...new Set(maxWordsArr)];
-        const uniqueMin = [...new Set(minWordsArr)];
-
-        (mostCommonWordsEl) && (mostCommonWordsEl.textContent = uniqueMax.map(function (w) { return `${w} (${maxLen})`; }).join(', ') || 'N/A');
-        (leastCommonWordsEl) && (leastCommonWordsEl.textContent = uniqueMin.map(function (w) { return `${w} (${minLen})`; }).join(', ') || 'N/A');
-
-        if (srAnnouncer) {
-            srAnnouncer.textContent = `Analysis complete. ${totalWords} ${totalWords === 1 ? 'word' : 'words'}. Longest: ${uniqueMax.join(', ')} (${maxLen}). Shortest: ${uniqueMin.join(', ')} (${minLen}).`;
-        }
-
-        resultsSection?.setAttribute('aria-busy', 'false');
-        if (analyzeBtn) {
-            analyzeBtn.disabled = false;
-            analyzeBtn.removeAttribute('aria-disabled');
-        }
-    }
+    // finalizeAndAnnounce implementation moved to Text_LENGTH_helperUI.js
 
     // Attempt to run worker processing and fall back to async main-thread processing on failure or timeout
     const WORKER_TIMEOUT_MS = 4000; // tuneable timeout
@@ -315,25 +282,4 @@ async function analyzeWordLengths() {
         });
 }
 
-function clearResults() {
-    // Clear list items and status text safely
-    if (wordLengthsEl) {
-        while (wordLengthsEl.firstChild) wordLengthsEl.removeChild(wordLengthsEl.firstChild);
-    }
-    if (mostCommonWordsEl) mostCommonWordsEl.textContent = '';
-    if (leastCommonWordsEl) leastCommonWordsEl.textContent = '';
-    // Clear announcer as well to avoid stale text being read on focus
-    if (srAnnouncer) srAnnouncer.textContent = '';
-}
-
-function renderNoWordsFound() {
-    if (wordLengthsEl) {
-        const li = document.createElement('li');
-        li.textContent = 'No words found.';
-        wordLengthsEl.appendChild(li);
-    }
-    if (mostCommonWordsEl) mostCommonWordsEl.textContent = 'N/A';
-    if (leastCommonWordsEl) leastCommonWordsEl.textContent = 'N/A';
-    // Announce the empty result to screen readers via the single announcer
-    if (srAnnouncer) srAnnouncer.textContent = 'No words found.';
-}
+// Helper UI implementations were moved to Text_LENGTH_helperUI.js
