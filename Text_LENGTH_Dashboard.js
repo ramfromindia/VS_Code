@@ -79,75 +79,90 @@ async function analyzeWordLengths() {
         return out;
     }
 
-    // Cooperative async processing so main thread isn't blocked
-    function createAsyncProcessor(words, frag, globalState) {
-        return function processAsyncFromIndex(startIndex, batchSize = 200, delay = 0) {
-            return new Promise((resolve) => {
-                let i = startIndex;
-                let aborted = false;
-                try { if (typeof window !== 'undefined') window.__TextLength_abortMainProcessing = function () { aborted = true; }; } catch (e) {}
+    // Cooperative async processing: prefer external module, fallback to inline
+    async function resolveCreateAsyncProcessor(words, frag, globalState) {
+        // Prefer window-attached
+        try {
+            if (typeof window !== 'undefined' && window.Text_LENGTH_mainProcessor && typeof window.Text_LENGTH_mainProcessor.createAsyncProcessor === 'function') {
+                return window.Text_LENGTH_mainProcessor.createAsyncProcessor(words, frag, globalState, { getWordLen, wordLengthsEl });
+            }
+        } catch (e) { /* ignore */ }
 
-                function step() {
-                    if (aborted) { try { if (typeof window !== 'undefined') window.__TextLength_abortMainProcessing = null; } catch (e) {} ; resolve(); return; }
-                    const end = Math.min(i + batchSize, words.length);
-                    for (; i < end; i++) {
-                        const word = words[i];
-                        const len = getWordLen(word);
-                        const li = document.createElement('li');
-                        li.textContent = `${word} (${len})`;
-                        frag.appendChild(li);
+        // Try dynamic import
+        try {
+            const mod = await import('./Text_LENGTH_mainProcessor.js');
+            if (mod && typeof mod.createAsyncProcessor === 'function') return mod.createAsyncProcessor(words, frag, globalState, { getWordLen, wordLengthsEl });
+        } catch (e) { /* ignore */ }
 
-                        if (len > globalState.globalMax) { globalState.globalMax = len; globalState.globalMaxWords.length = 0; globalState.globalMaxWords.push(word); }
-                        else if (len === globalState.globalMax) { globalState.globalMaxWords.push(word); }
-                        if (len < globalState.globalMin) { globalState.globalMin = len; globalState.globalMinWords.length = 0; globalState.globalMinWords.push(word); }
-                        else if (len === globalState.globalMin) { globalState.globalMinWords.push(word); }
-                    }
+        // Inline fallback (same behavior as before)
+        return (function _inlineCreate(wordsLocal, fragLocal, globalStateLocal) {
+            return function processAsyncFromIndex(startIndex, batchSize = 200, delay = 0) {
+                return new Promise((resolve) => {
+                    let i = startIndex;
+                    let aborted = false;
+                    try { if (typeof window !== 'undefined') window.__TextLength_abortMainProcessing = function () { aborted = true; }; } catch (e) {}
 
-                    if (wordLengthsEl && frag.childNodes.length > 0) {
-                        wordLengthsEl.appendChild(frag);
-                    }
+                    function step() {
+                        if (aborted) { try { if (typeof window !== 'undefined') window.__TextLength_abortMainProcessing = null; } catch (e) {} ; resolve(); return; }
+                        const end = Math.min(i + batchSize, wordsLocal.length);
+                        for (; i < end; i++) {
+                            const word = wordsLocal[i];
+                            const len = getWordLen(word);
+                            const li = document.createElement('li');
+                            li.textContent = `${word} (${len})`;
+                            fragLocal.appendChild(li);
 
-                    if (i < words.length) {
-                        if (typeof requestIdleCallback === 'function') {
-                            requestIdleCallback(step, { timeout: 50 });
-                        } else {
-                            setTimeout(step, delay);
+                            if (len > globalStateLocal.globalMax) { globalStateLocal.globalMax = len; globalStateLocal.globalMaxWords.length = 0; globalStateLocal.globalMaxWords.push(word); }
+                            else if (len === globalStateLocal.globalMax) { globalStateLocal.globalMaxWords.push(word); }
+                            if (len < globalStateLocal.globalMin) { globalStateLocal.globalMin = len; globalStateLocal.globalMinWords.length = 0; globalStateLocal.globalMinWords.push(word); }
+                            else if (len === globalStateLocal.globalMin) { globalStateLocal.globalMinWords.push(word); }
                         }
-                    } else {
-                        if (wordLengthsEl && frag.childNodes.length > 0) wordLengthsEl.appendChild(frag);
-                        try { if (typeof window !== 'undefined') window.__TextLength_abortMainProcessing = null; } catch (e) {}
-                        resolve();
+
+                        if (wordLengthsEl && fragLocal.childNodes.length > 0) {
+                            wordLengthsEl.appendChild(fragLocal);
+                        }
+
+                        if (i < wordsLocal.length) {
+                            if (typeof requestIdleCallback === 'function') {
+                                requestIdleCallback(step, { timeout: 50 });
+                            } else {
+                                setTimeout(step, delay);
+                            }
+                        } else {
+                            if (wordLengthsEl && fragLocal.childNodes.length > 0) wordLengthsEl.appendChild(fragLocal);
+                            try { if (typeof window !== 'undefined') window.__TextLength_abortMainProcessing = null; } catch (e) {}
+                            resolve();
+                        }
                     }
-                }
-                step();
-            });
-        };
+                    step();
+                });
+            };
+        }(words, frag, globalState));
     }
 
-    // Prefer external worker runner module if available, otherwise fall back
-    // to the inline implementation below (which keeps original behavior).
-    async function getWorkerRunner(chunks, options = {}) {
+    // Prefer external worker runner module if available; delegate to workerRouter
+    async function resolveGetWorkerRunner(chunks, options = {}) {
         try {
-            if (typeof window !== 'undefined' && window.Text_LENGTH_workerRunner && typeof window.Text_LENGTH_workerRunner.runWorker === 'function') {
-                return window.Text_LENGTH_workerRunner.runWorker(chunks, undefined, options);
+            if (typeof window !== 'undefined' && window.Text_LENGTH_workerRouter && typeof window.Text_LENGTH_workerRouter.getWorkerRunner === 'function') {
+                return window.Text_LENGTH_workerRouter.getWorkerRunner(chunks, options);
             }
         } catch (e) { /* ignore */ }
 
         try {
+            const mod = await import('./Text_LENGTH_workerRouter.js');
+            if (mod && typeof mod.getWorkerRunner === 'function') return mod.getWorkerRunner(chunks, options);
+        } catch (e) { /* ignore */ }
+
+        // Final fallback: try the previous direct imports (keeps backward compat)
+        try {
             const mod = await import('./Text_LENGTH_workerRunner.js');
             if (mod && typeof mod.runWorker === 'function') return mod.runWorker(chunks, undefined, options);
-        } catch (e) {
-            // import failed; fall back
-        }
+        } catch (e) { /* ignore */ }
 
         try {
             const mod = await import('./Text_LENGTH_Worker_fallback.js');
-            if (mod && typeof mod.runWorkerFallback === 'function') {
-                return mod.runWorkerFallback(chunks, undefined, options);
-            }
-        } catch (e) {
-            // import failed — fall back to inline old behavior
-        }
+            if (mod && typeof mod.runWorkerFallback === 'function') return mod.runWorkerFallback(chunks, undefined, options);
+        } catch (e) { /* ignore */ }
 
         return {
             promise: Promise.reject({ kind: 'creation-failure', error: new Error('Worker fallback module unavailable') }),
@@ -176,7 +191,7 @@ async function analyzeWordLengths() {
     let remainingChunks = chunks.length;
     let processedWords = 0;
 
-    const processAsyncFromIndex = createAsyncProcessor(words, frag, globalState);
+    const processAsyncFromIndex = await resolveCreateAsyncProcessor(words, frag, globalState);
 
     const WORKER_TIMEOUT_MS = 4000;
 
@@ -213,7 +228,7 @@ async function analyzeWordLengths() {
         }
     }
 
-    const runner = await getWorkerRunner(chunks, { onMessage: workerMessageHandler });
+    const runner = await resolveGetWorkerRunner(chunks, { onMessage: workerMessageHandler });
     try { if (typeof window !== 'undefined') window.__TextLength_currentRunner = runner; } catch (e) {}
 
     runner.promise = runner.promise.catch(async (err) => {
