@@ -5,6 +5,8 @@
  * dashboard can offload rendering and state updates to a dedicated module.
  */
 
+import { exposeToWindow } from './Text_LENGTH_expose.js';
+
 export function createAsyncProcessor(words, frag, globalState, options = {}) {
     const getWordLen = (options && typeof options.getWordLen === 'function') ? options.getWordLen : (w) => Array.from(w).length;
     const wordLengthsEl = (options && options.wordLengthsEl) || (typeof document !== 'undefined' ? document.getElementById('wordLengths') : null);
@@ -52,10 +54,5 @@ export function createAsyncProcessor(words, frag, globalState, options = {}) {
     };
 }
 
-// Expose to window for non-module usage
-try {
-    if (typeof window !== 'undefined') {
-        window.Text_LENGTH_mainProcessor = window.Text_LENGTH_mainProcessor || {};
-        window.Text_LENGTH_mainProcessor.createAsyncProcessor = createAsyncProcessor;
-    }
-} catch (e) { /* ignore */ }
+// Expose to window for non-module usage (safe helper handles environment checks)
+exposeToWindow('Text_LENGTH_mainProcessor', 'createAsyncProcessor', createAsyncProcessor);

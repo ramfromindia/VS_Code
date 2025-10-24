@@ -60,13 +60,10 @@ export function runWorker(chunksToProcess, workerUrl = 'textLengthWorker.js', op
     };
 }
 
+import { exposeToWindow } from './Text_LENGTH_expose.js';
+
 // Expose to window for non-module inclusion
-try {
-    if (typeof window !== 'undefined') {
-        window.Text_LENGTH_workerRunner = window.Text_LENGTH_workerRunner || {};
-        window.Text_LENGTH_workerRunner.runWorker = runWorker;
-    }
-} catch (e) { /* ignore */ }
+exposeToWindow('Text_LENGTH_workerRunner', 'runWorker', runWorker);
 
 // Provide a compatibility wrapper named runWorkerFallback so callers that
 // import the old fallback module can still call the same symbol. This
@@ -77,9 +74,4 @@ export function runWorkerFallback(chunksToProcess, workerPath = 'textLengthWorke
 }
 
 // Also expose the compatibility alias on the window object
-try {
-    if (typeof window !== 'undefined') {
-        window.Text_LENGTH_workerRunner = window.Text_LENGTH_workerRunner || {};
-        window.Text_LENGTH_workerRunner.runWorkerFallback = runWorkerFallback;
-    }
-} catch (e) { /* ignore */ }
+exposeToWindow('Text_LENGTH_workerRunner', 'runWorkerFallback', runWorkerFallback);
