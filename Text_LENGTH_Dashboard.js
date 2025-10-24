@@ -55,15 +55,9 @@ async function analyzeWordLengths() {
                 return window.Text_LENGTH_tokenize.tokenize(s);
             }
         } catch (e) { /* ignore */ }
-
-        // Try dynamic import (when script served as module)
-        try {
-            const mod = await import('./Text_LENGTH_tokenize.js');
-            if (mod && typeof mod.tokenize === 'function') return mod.tokenize(s);
-        } catch (e) {
-            // dynamic import failed — fall back to local
-        }
-
+        // If a tokenize implementation was not present on window, fall back
+        // to the inline implementation below. (All external scripts will be
+        // included via <script src=> and expose symbols on window.)
         // Local fallback: normalize apostrophes and tokenization (identical logic)
         s = s.replace(/[’‘]/g, "'");
         let wordPattern;
@@ -87,13 +81,7 @@ async function analyzeWordLengths() {
                 return window.Text_LENGTH_mainProcessor.createAsyncProcessor(words, frag, globalState, { getWordLen, wordLengthsEl });
             }
         } catch (e) { /* ignore */ }
-
-        // Try dynamic import
-        try {
-            const mod = await import('./Text_LENGTH_mainProcessor.js');
-            if (mod && typeof mod.createAsyncProcessor === 'function') return mod.createAsyncProcessor(words, frag, globalState, { getWordLen, wordLengthsEl });
-        } catch (e) { /* ignore */ }
-
+        // No dynamic import — fall back to inline implementation
         // Inline fallback (same behavior as before)
         return (function _inlineCreate(wordsLocal, fragLocal, globalStateLocal) {
             return function processAsyncFromIndex(startIndex, batchSize = 200, delay = 0) {
@@ -147,23 +135,19 @@ async function analyzeWordLengths() {
                 return window.Text_LENGTH_workerRouter.getWorkerRunner(chunks, options);
             }
         } catch (e) { /* ignore */ }
-
+        // If workerRouter/runner are not available via window, try direct
+        // runner symbols on window (workerRunner or its fallback alias).
         try {
-            const mod = await import('./Text_LENGTH_workerRouter.js');
-            if (mod && typeof mod.getWorkerRunner === 'function') return mod.getWorkerRunner(chunks, options);
-        } catch (e) { /* ignore */ }
-
-        // Final fallback: try the previous direct imports (keeps backward compat)
-        try {
-            const mod = await import('./Text_LENGTH_workerRunner.js');
-            if (mod && typeof mod.runWorker === 'function') return mod.runWorker(chunks, undefined, options);
+            if (typeof window !== 'undefined' && window.Text_LENGTH_workerRunner && typeof window.Text_LENGTH_workerRunner.runWorker === 'function') {
+                return window.Text_LENGTH_workerRunner.runWorker(chunks, undefined, options);
+            }
         } catch (e) { /* ignore */ }
 
         try {
-            const mod = await import('./Text_LENGTH_Worker_fallback.js');
-            if (mod && typeof mod.runWorkerFallback === 'function') return mod.runWorkerFallback(chunks, undefined, options);
+            if (typeof window !== 'undefined' && window.Text_LENGTH_workerRunner && typeof window.Text_LENGTH_workerRunner.runWorkerFallback === 'function') {
+                return window.Text_LENGTH_workerRunner.runWorkerFallback(chunks, undefined, options);
+            }
         } catch (e) { /* ignore */ }
-
         return {
             promise: Promise.reject({ kind: 'creation-failure', error: new Error('Worker fallback module unavailable') }),
             terminate: function () {}

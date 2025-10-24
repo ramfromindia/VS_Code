@@ -7,9 +7,9 @@
  * scripts are not loaded as modules.
  */
 
-import { exposeToWindow } from './Text_LENGTH_expose.js';
+// rely on global exposeToWindow (set by Text_LENGTH_expose.js)
 
-export function tokenize(input) {
+function tokenize(input) {
     if (typeof input !== 'string') input = String(input ?? '');
 
     // Normalize typographic apostrophes to straight ASCII apostrophe
@@ -29,4 +29,4 @@ export function tokenize(input) {
 }
 
 // Attach to window for legacy (non-module) usage (safe helper)
-exposeToWindow('Text_LENGTH_tokenize', 'tokenize', tokenize);
+try { if (typeof exposeToWindow === 'function') exposeToWindow('Text_LENGTH_tokenize', 'tokenize', tokenize); } catch (e) { try { if (typeof window !== 'undefined') { window.Text_LENGTH_tokenize = window.Text_LENGTH_tokenize || {}; window.Text_LENGTH_tokenize.tokenize = tokenize; } } catch (e2) {} }
