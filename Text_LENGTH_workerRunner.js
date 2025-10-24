@@ -67,3 +67,19 @@ try {
         window.Text_LENGTH_workerRunner.runWorker = runWorker;
     }
 } catch (e) { /* ignore */ }
+
+// Provide a compatibility wrapper named runWorkerFallback so callers that
+// import the old fallback module can still call the same symbol. This
+// keeps a single canonical implementation (runWorker) while maintaining
+// backward compatibility with code that expects runWorkerFallback.
+export function runWorkerFallback(chunksToProcess, workerPath = 'textLengthWorker.js', options = {}) {
+    return runWorker(chunksToProcess, workerPath, options);
+}
+
+// Also expose the compatibility alias on the window object
+try {
+    if (typeof window !== 'undefined') {
+        window.Text_LENGTH_workerRunner = window.Text_LENGTH_workerRunner || {};
+        window.Text_LENGTH_workerRunner.runWorkerFallback = runWorkerFallback;
+    }
+} catch (e) { /* ignore */ }
