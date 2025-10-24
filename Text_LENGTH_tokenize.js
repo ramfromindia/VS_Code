@@ -7,6 +7,8 @@
  * scripts are not loaded as modules.
  */
 
+import { exposeToWindow } from './Text_LENGTH_expose.js';
+
 export function tokenize(input) {
     if (typeof input !== 'string') input = String(input ?? '');
 
@@ -26,12 +28,5 @@ export function tokenize(input) {
     return input.match(wordPattern) ?? [];
 }
 
-// Attach to window for legacy (non-module) usage
-try {
-    if (typeof window !== 'undefined') {
-        window.Text_LENGTH_tokenize = window.Text_LENGTH_tokenize || {};
-        window.Text_LENGTH_tokenize.tokenize = tokenize;
-    }
-} catch (e) {
-    // ignore (safe guard for non-browser environments)
-}
+// Attach to window for legacy (non-module) usage (safe helper)
+exposeToWindow('Text_LENGTH_tokenize', 'tokenize', tokenize);

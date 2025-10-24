@@ -5,6 +5,8 @@
  * then dynamic import of Text_LENGTH_workerRunner.js, then fallback module.
  */
 
+import { exposeToWindow } from './Text_LENGTH_expose.js';
+
 export async function getWorkerRunner(chunks, options = {}) {
     try {
         if (typeof window !== 'undefined' && window.Text_LENGTH_workerRunner && typeof window.Text_LENGTH_workerRunner.runWorker === 'function') {
@@ -28,10 +30,5 @@ export async function getWorkerRunner(chunks, options = {}) {
     };
 }
 
-// Expose to window for legacy usage
-try {
-    if (typeof window !== 'undefined') {
-        window.Text_LENGTH_workerRouter = window.Text_LENGTH_workerRouter || {};
-        window.Text_LENGTH_workerRouter.getWorkerRunner = getWorkerRunner;
-    }
-} catch (e) { /* ignore */ }
+// Expose to window for legacy usage (use helper to keep logic consistent)
+exposeToWindow('Text_LENGTH_workerRouter', 'getWorkerRunner', getWorkerRunner);
