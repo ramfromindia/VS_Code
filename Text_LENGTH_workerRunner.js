@@ -4,7 +4,7 @@
  * Implements robust worker creation, message handling and termination.
  */
 
-export function runWorker(chunksToProcess, workerUrl = 'textLengthWorker.js', options = {}) {
+function runWorker(chunksToProcess, workerUrl = 'textLengthWorker.js', options = {}) {
     let worker;
     let processedWords = 0;
     let remainingChunks = chunksToProcess.length;
@@ -59,19 +59,14 @@ export function runWorker(chunksToProcess, workerUrl = 'textLengthWorker.js', op
         terminate: function () { try { if (worker) worker.terminate(); } catch (e) {} }
     };
 }
-
-import { exposeToWindow } from './Text_LENGTH_expose.js';
-
-// Expose to window for non-module inclusion
-exposeToWindow('Text_LENGTH_workerRunner', 'runWorker', runWorker);
+// Expose to window for non-module inclusion (exposeToWindow provided globally)
+try { if (typeof exposeToWindow === 'function') exposeToWindow('Text_LENGTH_workerRunner', 'runWorker', runWorker); } catch (e) { try { if (typeof window !== 'undefined') { window.Text_LENGTH_workerRunner = window.Text_LENGTH_workerRunner || {}; window.Text_LENGTH_workerRunner.runWorker = runWorker; } } catch (e2) {} }
 
 // Provide a compatibility wrapper named runWorkerFallback so callers that
-// import the old fallback module can still call the same symbol. This
-// keeps a single canonical implementation (runWorker) while maintaining
-// backward compatibility with code that expects runWorkerFallback.
-export function runWorkerFallback(chunksToProcess, workerPath = 'textLengthWorker.js', options = {}) {
+// expect the older name can still call the same symbol.
+function runWorkerFallback(chunksToProcess, workerPath = 'textLengthWorker.js', options = {}) {
     return runWorker(chunksToProcess, workerPath, options);
 }
 
 // Also expose the compatibility alias on the window object
-exposeToWindow('Text_LENGTH_workerRunner', 'runWorkerFallback', runWorkerFallback);
+try { if (typeof exposeToWindow === 'function') exposeToWindow('Text_LENGTH_workerRunner', 'runWorkerFallback', runWorkerFallback); } catch (e) { try { if (typeof window !== 'undefined') { window.Text_LENGTH_workerRunner = window.Text_LENGTH_workerRunner || {}; window.Text_LENGTH_workerRunner.runWorkerFallback = runWorkerFallback; } } catch (e2) {} }

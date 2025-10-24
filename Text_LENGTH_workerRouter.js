@@ -5,23 +5,20 @@
  * then dynamic import of Text_LENGTH_workerRunner.js, then fallback module.
  */
 
-import { exposeToWindow } from './Text_LENGTH_expose.js';
+// rely on global exposeToWindow (set by Text_LENGTH_expose.js)
 
-export async function getWorkerRunner(chunks, options = {}) {
+async function getWorkerRunner(chunks, options = {}) {
     try {
         if (typeof window !== 'undefined' && window.Text_LENGTH_workerRunner && typeof window.Text_LENGTH_workerRunner.runWorker === 'function') {
             return window.Text_LENGTH_workerRunner.runWorker(chunks, undefined, options);
         }
     } catch (e) { /* ignore */ }
 
+    // If workerRunner is not available on the window, try the compatibility alias
     try {
-        const mod = await import('./Text_LENGTH_workerRunner.js');
-        if (mod && typeof mod.runWorker === 'function') return mod.runWorker(chunks, undefined, options);
-    } catch (e) { /* ignore */ }
-
-    try {
-        const mod = await import('./Text_LENGTH_Worker_fallback.js');
-        if (mod && typeof mod.runWorkerFallback === 'function') return mod.runWorkerFallback(chunks, undefined, options);
+        if (typeof window !== 'undefined' && window.Text_LENGTH_workerRunner && typeof window.Text_LENGTH_workerRunner.runWorkerFallback === 'function') {
+            return window.Text_LENGTH_workerRunner.runWorkerFallback(chunks, undefined, options);
+        }
     } catch (e) { /* ignore */ }
 
     return {
@@ -31,4 +28,4 @@ export async function getWorkerRunner(chunks, options = {}) {
 }
 
 // Expose to window for legacy usage (use helper to keep logic consistent)
-exposeToWindow('Text_LENGTH_workerRouter', 'getWorkerRunner', getWorkerRunner);
+try { if (typeof exposeToWindow === 'function') exposeToWindow('Text_LENGTH_workerRouter', 'getWorkerRunner', getWorkerRunner); } catch (e) { try { if (typeof window !== 'undefined') { window.Text_LENGTH_workerRouter = window.Text_LENGTH_workerRouter || {}; window.Text_LENGTH_workerRouter.getWorkerRunner = getWorkerRunner; } } catch (e2) {} }
