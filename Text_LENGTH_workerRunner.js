@@ -10,8 +10,22 @@ export function runWorker(chunksToProcess, workerUrl = 'textLengthWorker.js', op
     let remainingChunks = chunksToProcess.length;
 
     const p = new Promise((resolve, reject) => {
+        // Prefer module-type workers (allows using import inside workers).
+        // Fall back to classic workers if module workers are unsupported.
         try {
-            worker = new Worker(workerUrl);
+            try {
+                const moduleUrl = new URL(workerUrl, import.meta.url);
+                worker = new Worker(moduleUrl, { type: 'module' });
+            } catch (moduleErr) {
+                // Module worker creation failed (older browser or worker script not resolvable)
+                try {
+                    worker = new Worker(workerUrl);
+                } catch (classicErr) {
+                    // Both attempts failed — reject with the original module error for debugging
+                    reject({ kind: 'creation-failure', error: moduleErr || classicErr });
+                    return;
+                }
+            }
         } catch (err) {
             reject({ kind: 'creation-failure', error: err });
             return;
