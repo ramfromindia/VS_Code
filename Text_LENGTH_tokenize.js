@@ -9,7 +9,7 @@
 
 // rely on global exposeToWindow (set by Text_LENGTH_expose.js)
 
-function tokenize(input) {
+export function tokenize(input) {
     if (typeof input !== 'string') input = String(input ?? '');
 
     // Normalize typographic apostrophes to straight ASCII apostrophe
@@ -28,5 +28,10 @@ function tokenize(input) {
     return input.match(wordPattern) ?? [];
 }
 
-// Attach to window for legacy (non-module) usage (safe helper)
-try { if (typeof exposeToWindow === 'function') exposeToWindow('Text_LENGTH_tokenize', 'tokenize', tokenize); } catch (e) { try { if (typeof window !== 'undefined') { window.Text_LENGTH_tokenize = window.Text_LENGTH_tokenize || {}; window.Text_LENGTH_tokenize.tokenize = tokenize; } } catch (e2) {} }
+// Optional compatibility shim for pages still expecting globals.
+try {
+    if (typeof window !== 'undefined') {
+        window.Text_LENGTH_tokenize = window.Text_LENGTH_tokenize || {};
+        window.Text_LENGTH_tokenize.tokenize = tokenize;
+    }
+} catch (e) { /* ignore */ }

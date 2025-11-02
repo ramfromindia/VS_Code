@@ -1,3 +1,8 @@
+import { tokenize as tokenizeImport } from './Text_LENGTH_tokenize.js';
+import { createAsyncProcessor as createAsyncProcessorImport } from './Text_LENGTH_mainProcessor.js';
+import { clearResults, renderNoWordsFound, finalizeAndAnnounce } from './Text_LENGTH_helperUI.js';
+import { getWorkerRunner as getWorkerRunnerImport } from './Text_LENGTH_workerRouter.js';
+
 const analyzeBtn = document.getElementById('analyzeBtn');
 const form = document.getElementById('analyzeForm');
 const wordLengthsEl = document.getElementById('wordLengths'); // now a <ul>
@@ -45,20 +50,14 @@ async function analyzeWordLengths() {
         try { if (typeof window !== 'undefined') window.__TextLength_abortMainProcessing = null; } catch (e) {}
     }
 
-    // Attempt to use the external tokenize module if available. This uses
-    // a dynamic import where supported; otherwise falls back to a local
-    // implementation (keeps behavior identical to previous single-file code).
+    // Attempt to use the imported tokenize module if available; otherwise
+    // fall back to an inline tokenizer for maximum robustness.
     async function getTokens(s) {
-        // Prefer window-attached module (if loader included it)
         try {
-            if (typeof window !== 'undefined' && window.Text_LENGTH_tokenize && typeof window.Text_LENGTH_tokenize.tokenize === 'function') {
-                return window.Text_LENGTH_tokenize.tokenize(s);
-            }
+            if (typeof tokenizeImport === 'function') return tokenizeImport(s);
         } catch (e) { /* ignore */ }
-        // If a tokenize implementation was not present on window, fall back
-        // to the inline implementation below. (All external scripts will be
-        // included via <script src=> and expose symbols on window.)
-        // Local fallback: normalize apostrophes and tokenization (identical logic)
+
+        // Inline fallback (same logic as previous implementation)
         s = s.replace(/[’‘]/g, "'");
         let wordPattern;
         try { new RegExp("\\p{L}", "u"); wordPattern = /[\p{L}\p{N}]+(?:['-][\p{L}\p{N}]+)*/gu; }
@@ -75,13 +74,13 @@ async function analyzeWordLengths() {
 
     // Cooperative async processing: prefer external module, fallback to inline
     async function resolveCreateAsyncProcessor(words, frag, globalState) {
-        // Prefer window-attached
+        // Prefer imported module
         try {
-            if (typeof window !== 'undefined' && window.Text_LENGTH_mainProcessor && typeof window.Text_LENGTH_mainProcessor.createAsyncProcessor === 'function') {
-                return window.Text_LENGTH_mainProcessor.createAsyncProcessor(words, frag, globalState, { getWordLen, wordLengthsEl });
+            if (typeof createAsyncProcessorImport === 'function') {
+                return createAsyncProcessorImport(words, frag, globalState, { getWordLen, wordLengthsEl });
             }
         } catch (e) { /* ignore */ }
-        // No dynamic import — fall back to inline implementation
+
         // Inline fallback (same behavior as before)
         return (function _inlineCreate(wordsLocal, fragLocal, globalStateLocal) {
             return function processAsyncFromIndex(startIndex, batchSize = 200, delay = 0) {
@@ -131,12 +130,16 @@ async function analyzeWordLengths() {
     // Prefer external worker runner module if available; delegate to workerRouter
     async function resolveGetWorkerRunner(chunks, options = {}) {
         try {
+            if (typeof getWorkerRunnerImport === 'function') return getWorkerRunnerImport(chunks, options);
+        } catch (e) { /* ignore */ }
+
+        // Fall back to legacy window-attached symbols if present
+        try {
             if (typeof window !== 'undefined' && window.Text_LENGTH_workerRouter && typeof window.Text_LENGTH_workerRouter.getWorkerRunner === 'function') {
                 return window.Text_LENGTH_workerRouter.getWorkerRunner(chunks, options);
             }
         } catch (e) { /* ignore */ }
-        // If workerRouter/runner are not available via window, try direct
-        // runner symbols on window (workerRunner or its fallback alias).
+
         try {
             if (typeof window !== 'undefined' && window.Text_LENGTH_workerRunner && typeof window.Text_LENGTH_workerRunner.runWorker === 'function') {
                 return window.Text_LENGTH_workerRunner.runWorker(chunks, undefined, options);
@@ -148,6 +151,7 @@ async function analyzeWordLengths() {
                 return window.Text_LENGTH_workerRunner.runWorkerFallback(chunks, undefined, options);
             }
         } catch (e) { /* ignore */ }
+
         return {
             promise: Promise.reject({ kind: 'creation-failure', error: new Error('Worker fallback module unavailable') }),
             terminate: function () {}

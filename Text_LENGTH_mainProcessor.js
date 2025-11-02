@@ -7,7 +7,7 @@
 
 // rely on global exposeToWindow (set by Text_LENGTH_expose.js)
 
-function createAsyncProcessor(words, frag, globalState, options = {}) {
+export function createAsyncProcessor(words, frag, globalState, options = {}) {
     const getWordLen = (options && typeof options.getWordLen === 'function') ? options.getWordLen : (w) => Array.from(w).length;
     const wordLengthsEl = (options && options.wordLengthsEl) || (typeof document !== 'undefined' ? document.getElementById('wordLengths') : null);
 
@@ -53,6 +53,10 @@ function createAsyncProcessor(words, frag, globalState, options = {}) {
         });
     };
 }
-
-// Expose to window for non-module usage (safe helper handles environment checks)
-exposeToWindow('Text_LENGTH_mainProcessor', 'createAsyncProcessor', createAsyncProcessor);
+// Optional compatibility shim for legacy non-module pages
+try {
+    if (typeof window !== 'undefined') {
+        window.Text_LENGTH_mainProcessor = window.Text_LENGTH_mainProcessor || {};
+        window.Text_LENGTH_mainProcessor.createAsyncProcessor = createAsyncProcessor;
+    }
+} catch (e) { /* ignore */ }

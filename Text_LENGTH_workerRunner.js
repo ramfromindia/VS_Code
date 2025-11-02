@@ -4,7 +4,7 @@
  * Implements robust worker creation, message handling and termination.
  */
 
-function runWorker(chunksToProcess, workerUrl = 'textLengthWorker.js', options = {}) {
+export function runWorker(chunksToProcess, workerUrl = 'textLengthWorker.js', options = {}) {
     let worker;
     let processedWords = 0;
     let remainingChunks = chunksToProcess.length;
@@ -59,14 +59,21 @@ function runWorker(chunksToProcess, workerUrl = 'textLengthWorker.js', options =
         terminate: function () { try { if (worker) worker.terminate(); } catch (e) {} }
     };
 }
-// Expose to window for non-module inclusion (exposeToWindow provided globally)
-try { if (typeof exposeToWindow === 'function') exposeToWindow('Text_LENGTH_workerRunner', 'runWorker', runWorker); } catch (e) { try { if (typeof window !== 'undefined') { window.Text_LENGTH_workerRunner = window.Text_LENGTH_workerRunner || {}; window.Text_LENGTH_workerRunner.runWorker = runWorker; } } catch (e2) {} }
+// Optional compatibility shim
+try {
+    if (typeof window !== 'undefined') {
+        window.Text_LENGTH_workerRunner = window.Text_LENGTH_workerRunner || {};
+        window.Text_LENGTH_workerRunner.runWorker = runWorker;
+    }
+} catch (e) { /* ignore */ }
 
-// Provide a compatibility wrapper named runWorkerFallback so callers that
-// expect the older name can still call the same symbol.
-function runWorkerFallback(chunksToProcess, workerPath = 'textLengthWorker.js', options = {}) {
+export function runWorkerFallback(chunksToProcess, workerPath = 'textLengthWorker.js', options = {}) {
     return runWorker(chunksToProcess, workerPath, options);
 }
 
-// Also expose the compatibility alias on the window object
-try { if (typeof exposeToWindow === 'function') exposeToWindow('Text_LENGTH_workerRunner', 'runWorkerFallback', runWorkerFallback); } catch (e) { try { if (typeof window !== 'undefined') { window.Text_LENGTH_workerRunner = window.Text_LENGTH_workerRunner || {}; window.Text_LENGTH_workerRunner.runWorkerFallback = runWorkerFallback; } } catch (e2) {} }
+try {
+    if (typeof window !== 'undefined') {
+        window.Text_LENGTH_workerRunner = window.Text_LENGTH_workerRunner || {};
+        window.Text_LENGTH_workerRunner.runWorkerFallback = runWorkerFallback;
+    }
+} catch (e) { /* ignore */ }
