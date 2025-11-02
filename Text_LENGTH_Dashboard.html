@@ -80,13 +80,31 @@
          full control over the spoken summary. -->
     <div id="sr-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
 
-    <script src="Text_LENGTH_expose.js"></script>
-    <script src="Text_LENGTH_tokenize.js"></script>
-    <script src="Text_LENGTH_mainProcessor.js"></script>
-    <script src="Text_LENGTH_workerRunner.js"></script>
-    <script src="Text_LENGTH_Worker_fallback.js"></script>
-    <script src="Text_LENGTH_workerRouter.js"></script>
-    <script src="Text_LENGTH_helperUI.js"></script>
-    <script src="Text_LENGTH_Dashboard.js"></script>
+    <!-- Module entry: modern browsers will load the module version. -->
+    <script type="module" src="./Text_LENGTH_Dashboard.js"></script>
+
+    <!-- Legacy fallback: if the browser doesn't support modules, load the
+         original non-module scripts in order. The inline nomodule loader
+         keeps the previous behavior with minimal overhead. -->
+    <script nomodule>
+        (function () {
+            var scripts = [
+                'Text_LENGTH_expose.js',
+                'Text_LENGTH_tokenize.js',
+                'Text_LENGTH_mainProcessor.js',
+                'Text_LENGTH_workerRunner.js',
+                'Text_LENGTH_Worker_fallback.js',
+                'Text_LENGTH_workerRouter.js',
+                'Text_LENGTH_helperUI.js',
+                'Text_LENGTH_Dashboard.js'
+            ];
+            for (var i = 0; i < scripts.length; i++) {
+                var s = document.createElement('script');
+                s.src = scripts[i];
+                s.async = false; // preserve execution order
+                document.body.appendChild(s);
+            }
+        }());
+    </script>
 </body>
 </html>

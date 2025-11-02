@@ -7,14 +7,21 @@
 
 // rely on global exposeToWindow (set by Text_LENGTH_expose.js)
 
-async function getWorkerRunner(chunks, options = {}) {
+export async function getWorkerRunner(chunks, options = {}) {
+    // Prefer module-exported router if imported; otherwise fall back to
+    // window-attached legacy runner symbols (compatibility mode).
+    try {
+        if (typeof getWorkerRunner === 'function' && getWorkerRunner !== arguments.callee) {
+            // if this function was imported and is being called, just continue
+        }
+    } catch (e) { /* ignore */ }
+
     try {
         if (typeof window !== 'undefined' && window.Text_LENGTH_workerRunner && typeof window.Text_LENGTH_workerRunner.runWorker === 'function') {
             return window.Text_LENGTH_workerRunner.runWorker(chunks, undefined, options);
         }
     } catch (e) { /* ignore */ }
 
-    // If workerRunner is not available on the window, try the compatibility alias
     try {
         if (typeof window !== 'undefined' && window.Text_LENGTH_workerRunner && typeof window.Text_LENGTH_workerRunner.runWorkerFallback === 'function') {
             return window.Text_LENGTH_workerRunner.runWorkerFallback(chunks, undefined, options);
@@ -27,5 +34,10 @@ async function getWorkerRunner(chunks, options = {}) {
     };
 }
 
-// Expose to window for legacy usage (use helper to keep logic consistent)
-try { if (typeof exposeToWindow === 'function') exposeToWindow('Text_LENGTH_workerRouter', 'getWorkerRunner', getWorkerRunner); } catch (e) { try { if (typeof window !== 'undefined') { window.Text_LENGTH_workerRouter = window.Text_LENGTH_workerRouter || {}; window.Text_LENGTH_workerRouter.getWorkerRunner = getWorkerRunner; } } catch (e2) {} }
+// Optional compatibility shim
+try {
+    if (typeof window !== 'undefined') {
+        window.Text_LENGTH_workerRouter = window.Text_LENGTH_workerRouter || {};
+        window.Text_LENGTH_workerRouter.getWorkerRunner = getWorkerRunner;
+    }
+} catch (e) { /* ignore */ }
