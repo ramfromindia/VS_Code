@@ -72,7 +72,101 @@ export function finalizeAndAnnounce(totalWords, minLen, minWordsArr, maxLen, max
         analyzeBtnEl.disabled = false;
         analyzeBtnEl.removeAttribute('aria-disabled');
     }
+    // Hide progress UI when the run completes
+    try { if (typeof hideProgress === 'function') hideProgress(); } catch (e) {}
 }
+
+// --------- lightweight JS-driven progress animation API ---------
+// The progress UI is intentionally driven by JS (requestAnimationFrame)
+// so the animation can be subtle and non-blocking. The fill will
+// advance progressively toward a capped value while processing is
+// ongoing and will animate to 100% on completion.
+
+let _progressState = {
+    active: false,
+    rafId: null,
+    current: 0,
+    targetCap: 85, // max percent while processing (until finalization)
+};
+
+function _setFill(percent) {
+    const fill = document.getElementById('progress-bar-fill');
+    const container = document.getElementById('progress-bar');
+    if (!fill || !container) return;
+    fill.style.width = Math.max(0, Math.min(100, percent)) + '%';
+    fill.setAttribute('aria-valuenow', Math.round(percent));
+}
+
+function _animateToTarget() {
+    const container = document.getElementById('progress-bar');
+    if (!container) return;
+    const fill = document.getElementById('progress-bar-fill');
+    if (!_progressState.active) return;
+
+    // Gradually nudge current toward targetCap using eased step
+    const step = (target, current) => current + (target - current) * 0.08 + 0.1;
+    const next = step(_progressState.targetCap, _progressState.current);
+    _progressState.current = Math.min(_progressState.targetCap, next);
+    _setFill(_progressState.current);
+
+    _progressState.rafId = requestAnimationFrame(_animateToTarget);
+}
+
+export function showProgress() {
+    try {
+        const container = document.getElementById('progress-bar');
+        if (!container) return;
+        container.style.display = 'block';
+        container.setAttribute('aria-hidden', 'false');
+        _progressState.active = true;
+        _progressState.current = 2; // start visible but small
+        _setFill(_progressState.current);
+        if (_progressState.rafId) cancelAnimationFrame(_progressState.rafId);
+        _progressState.rafId = requestAnimationFrame(_animateToTarget);
+    } catch (e) { /* ignore */ }
+}
+
+export function hideProgress() {
+    try {
+        const container = document.getElementById('progress-bar');
+        const fill = document.getElementById('progress-bar-fill');
+        if (!container || !fill) return;
+        // Stop the ongoing animation
+        _progressState.active = false;
+        if (_progressState.rafId) { cancelAnimationFrame(_progressState.rafId); _progressState.rafId = null; }
+
+        // Animate quickly to 100% then fade out the bar
+        let start = null;
+        const startVal = _progressState.current || 0;
+        const duration = 220; // ms
+        function finishAnim(ts) {
+            if (!start) start = ts;
+            const elapsed = ts - start;
+            const p = Math.min(1, elapsed / duration);
+            const v = startVal + (100 - startVal) * p;
+            _setFill(v);
+            if (p < 1) {
+                requestAnimationFrame(finishAnim);
+                return;
+            }
+            // after a short delay hide the bar and reset
+            setTimeout(function () {
+                try { container.style.display = 'none'; } catch (e) {}
+                try { _setFill(0); _progressState.current = 0; } catch (e) {}
+                container.setAttribute('aria-hidden', 'true');
+            }, 160);
+        }
+        requestAnimationFrame(finishAnim);
+    } catch (e) { /* ignore */ }
+}
+
+// Expose API on window for non-module pages
+try {
+    if (typeof window !== 'undefined') {
+        window.showProgress = showProgress;
+        window.hideProgress = hideProgress;
+    }
+} catch (e) { /* ignore */ }
 
 // Optional compatibility shims for non-module pages
 try {

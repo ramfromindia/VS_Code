@@ -1,6 +1,6 @@
 import { tokenize as tokenizeImport } from './Text_LENGTH_tokenize.js';
 import { createAsyncProcessor as createAsyncProcessorImport } from './Text_LENGTH_mainProcessor.js';
-import { clearResults, renderNoWordsFound, finalizeAndAnnounce } from './Text_LENGTH_helperUI.js';
+import { clearResults, renderNoWordsFound, finalizeAndAnnounce, showProgress, hideProgress } from './Text_LENGTH_helperUI.js';
 import { getWorkerRunner as getWorkerRunnerImport } from './Text_LENGTH_workerRouter.js';
 
 const analyzeBtn = document.getElementById('analyzeBtn');
@@ -160,6 +160,8 @@ async function analyzeWordLengths() {
 
     // --- begin orchestrator ---
     setupUIState();
+    // Show the JS-driven progress bar while worker/fallback processing runs
+    try { if (typeof showProgress === 'function') showProgress(); } catch (e) {}
     teardownPreviousRun();
 
     const words = await getTokens(input);
