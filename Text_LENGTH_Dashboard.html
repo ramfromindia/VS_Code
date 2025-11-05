@@ -43,6 +43,11 @@
                 <button id="analyzeBtn" type="submit" aria-controls="wordLengths mostCommonWords leastCommonWords">Analyze Word Lengths</button>
             </form>
 
+            <!-- Subtle JS-driven progress bar. Visible while processing and hidden when idle. -->
+            <div id="progress-bar" class="progress-bar" aria-hidden="true">
+                <div id="progress-bar-fill" class="progress-bar-fill" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+            </div>
+
             <section id="results" aria-labelledby="results-heading">
                 <h2 id="results-heading">Results</h2>
                 <!-- aria-labelledby: points to the heading that labels this section; aria-live: notifies screen readers when live content inside updates(not interrupting) -->
