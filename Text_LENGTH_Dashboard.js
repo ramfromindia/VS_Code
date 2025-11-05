@@ -261,3 +261,12 @@ async function analyzeWordLengths() {
 }
 
 // Helper UI implementations were moved to Text_LENGTH_helperUI.js
+
+// Expose analyzeWordLengths to the global scope for older test harnesses
+// that call it as a plain global function (the dashboard is authored as
+// an ES module). This is a safe, idempotent attach.
+try {
+    if (typeof window !== 'undefined' && typeof analyzeWordLengths === 'function') {
+        window.analyzeWordLengths = analyzeWordLengths;
+    }
+} catch (e) { /* ignore */ }
