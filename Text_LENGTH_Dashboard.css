@@ -185,12 +185,52 @@ button:focus-visible, textarea:focus-visible, a:focus-visible {
 .progress-bar-fill {
 	height: 100%;
 	width: 0%;
-	background: linear-gradient(90deg, var(--color-primary) 0%, rgba(25,118,210,0.85) 60%);
+	/* Layered gradient: vivid leading edge, softer trailing color for depth */
+	background-image:
+		linear-gradient(90deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.02) 40%, rgba(255,255,255,0) 100%),
+		linear-gradient(90deg, #4fc3f7 0%, var(--color-primary) 35%, rgba(21,101,192,0.95) 75%);
 	border-radius: 999px;
-	box-shadow: 0 1px 4px rgba(25,118,210,0.12) inset;
+	box-shadow: 0 1px 6px rgba(25,118,210,0.12) inset, 0 2px 6px rgba(0,0,0,0.06);
 	will-change: width;
+	position: relative;
+	overflow: hidden;
+}
+
+/* Subtle striped overlay for texture */
+.progress-bar-fill::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0 6px, rgba(0,0,0,0.03) 6px 12px);
+	pointer-events: none;
+	mix-blend-mode: overlay;
+	opacity: 0.9;
+}
+
+/* Moving sheen (highlight) — decorative only; respects user reduced-motion */
+.progress-bar-fill::after {
+	content: '';
+	position: absolute;
+	top: -40%;
+	left: -30%;
+	width: 40%;
+	height: 180%;
+	background: linear-gradient(120deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.0) 100%);
+	transform: rotate(12deg);
+	filter: blur(6px);
+	opacity: 0.9;
+	animation: shimmer 2.2s linear infinite;
+}
+
+@keyframes shimmer {
+	from { transform: translateX(-120%) rotate(12deg); }
+	to { transform: translateX(220%) rotate(12deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
 	.progress-bar-fill { transition: none !important; }
+	.progress-bar-fill::after { animation: none !important; }
 }
