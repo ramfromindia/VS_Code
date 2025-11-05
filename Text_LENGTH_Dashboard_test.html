@@ -165,15 +165,18 @@
     });
 
     // Attach per-row run handlers
+    // Make runTest async so we can await the dashboard's asynchronous processing
     tbody.addEventListener('click', function(e){
       const btn = e.target.closest('button.run');
       if (!btn) return;
       const idx = Number(btn.getAttribute('data-index'));
+      // fire-and-forget: if caller wants to await, they can use window.__testHarness
       runTest(idx);
     });
 
-    document.getElementById('runAll').addEventListener('click', function(){
-      runAll();
+    // Run All should await each test so that asynchronous analysis finishes
+    document.getElementById('runAll').addEventListener('click', async function(){
+      await runAll();
     });
 
     // Manual analyze button (calls the same function as the dashboard script expects)
@@ -187,14 +190,23 @@
       }
     });
 
-    function runTest(index) {
+    async function runTest(index) {
       const t = tests[index];
       const inputEl = document.getElementById('inputText');
       inputEl.value = t.input;
 
       // Call dashboard function
       if (typeof analyzeWordLengths === 'function') {
-        analyzeWordLengths();
+        // If the dashboard returns a promise (it's async) await it so the
+        // test harness reads results after processing completes (workers / timers)
+        try {
+          const maybePromise = analyzeWordLengths();
+          if (maybePromise && typeof maybePromise.then === 'function') {
+            await maybePromise;
+          }
+        } catch (e) {
+          // ignore errors here; we'll detect missing output below
+        }
       } else {
         document.getElementById(`actual-${index}`).textContent = 'analyzeWordLengths() not found';
         document.getElementById(`result-${index}`).textContent = 'ERROR';
@@ -203,11 +215,24 @@
       }
 
       // Read actual outputs from the elements the dashboard writes to
-      const actualWordLengths = document.getElementById('wordLengths').textContent;
-      const actualMost = document.getElementById('mostCommonWords').textContent;
-      const actualLeast = document.getElementById('leastCommonWords').textContent;
+      // Read actual outputs from the elements the dashboard writes to
+      // If the dashboard renders words into <li> items (a <ul>), join them
+      // with a comma+space to match the expected string formatting used
+      // by the test cases. Otherwise fallback to plain textContent.
+      const wlEl = document.getElementById('wordLengths');
+      let actualWordLengths = '';
+      if (wlEl) {
+        const lis = wlEl.querySelectorAll('li');
+        if (lis && lis.length > 0) {
+          actualWordLengths = Array.from(lis).map(function(li){ return li.textContent.trim(); }).join(', ');
+        } else {
+          actualWordLengths = wlEl.textContent.trim();
+        }
+      }
+      const actualMost = document.getElementById('mostCommonWords').textContent.trim();
+      const actualLeast = document.getElementById('leastCommonWords').textContent.trim();
 
-      const actualSummary = `wordLengths: ${actualWordLengths}\nmostCommonWords: ${actualMost}\nleastCommonWords: ${actualLeast}`;
+  const actualSummary = `wordLengths: ${actualWordLengths}\nmostCommonWords: ${actualMost}\nleastCommonWords: ${actualLeast}`;
       document.getElementById(`actual-${index}`).textContent = actualSummary;
 
       // Compare to expected (string-equality)
@@ -224,9 +249,12 @@
       resultCell.className = pass ? 'pass' : 'fail';
     }
 
-    function runAll() {
-      // run synchronously; tests are synchronous
-      tests.forEach((_, i) => runTest(i));
+    async function runAll() {
+      // Run tests sequentially and await each so asynchronous UI updates complete
+      for (let i = 0; i < tests.length; i++) {
+        // small delay to allow DOM updates between runs if needed
+        await runTest(i);
+      }
     }
 
     // Expose runAll to console for convenience

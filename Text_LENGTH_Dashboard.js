@@ -238,7 +238,7 @@ async function analyzeWordLengths() {
         setTimeout(() => resolve({ timedOut: true, processedCount: words.length - (remainingChunks * CHUNK_SIZE) }), WORKER_TIMEOUT_MS);
     });
 
-    Promise.race([runner.promise, timeoutPromise])
+    return Promise.race([runner.promise, timeoutPromise])
         .then(async (result) => {
             if (result && result.fallbackHandled) return;
 
@@ -258,6 +258,7 @@ async function analyzeWordLengths() {
         .finally(() => {
             finalizeAndAnnounce(words.length, globalState.globalMin, globalState.globalMinWords, globalState.globalMax, globalState.globalMaxWords);
         });
+    
 }
 
 // Helper UI implementations were moved to Text_LENGTH_helperUI.js
