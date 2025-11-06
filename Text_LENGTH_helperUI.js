@@ -20,6 +20,9 @@ const mostCommonWordsEl = getEl('mostCommonWords');
 const leastCommonWordsEl = getEl('leastCommonWords');
 const resultsSection = getEl('results');
 const srAnnouncer = getEl('sr-announcer');
+const uniqueMaxListEl = getEl('uniqueMaxList');
+const uniqueMinListEl = getEl('uniqueMinList');
+const topFrequenciesEl = getEl('topFrequencies');
 
 // Autofocus management: focus the textarea on load but avoid forcing
 // the on-screen keyboard on mobile devices.
@@ -77,6 +80,29 @@ export function finalizeAndAnnounce(totalWords, minLen, minWordsArr, maxLen, max
     if (srAnnouncer) {
         srAnnouncer.textContent = `Analysis complete. ${totalWords} ${totalWords === 1 ? 'word' : 'words'}. Longest: ${uniqueMax.join(', ')} (${maxLen}). Shortest: ${uniqueMin.join(', ')} (${minLen}).`;
     }
+
+    // Render extras (unique lists and top frequencies) if available in global state
+    try {
+        if (typeof window !== 'undefined' && window.__TextLength_globalState) {
+            const gs = window.__TextLength_globalState;
+            // Unique max/min
+            if (uniqueMaxListEl) uniqueMaxListEl.textContent = (uniqueMax.length ? uniqueMax.map(w => `${w} (${maxLen})`).join(', ') : 'N/A');
+            if (uniqueMinListEl) uniqueMinListEl.textContent = (uniqueMin.length ? uniqueMin.map(w => `${w} (${minLen})`).join(', ') : 'N/A');
+
+            // Top frequencies (if freqMap exists)
+            if (topFrequenciesEl) {
+                try {
+                    const freqMap = gs.freqMap;
+                    if (freqMap && typeof freqMap.entries === 'function') {
+                        // build sorted array of [word, count]
+                        const arr = Array.from(freqMap.entries()).sort((a, b) => b[1] - a[1]);
+                        const top = arr.slice(0, 10).map(([w, c]) => `${w}: ${c}`);
+                        topFrequenciesEl.textContent = top.length ? top.join(', ') : 'N/A';
+                    }
+                } catch (e) { /* ignore frequency rendering errors */ }
+            }
+        }
+    } catch (e) { /* ignore extras rendering errors */ }
 
     if (resultsSection) resultsSection.setAttribute('aria-busy', 'false');
     if (analyzeBtnEl) {

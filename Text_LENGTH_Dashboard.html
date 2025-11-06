@@ -77,6 +77,23 @@
                     <h3 id="lowest-heading">Word(s) With Lowest Length</h3>
                     <div id="leastCommonWords" role="region" aria-live="off"></div>
                 </section>
+
+                <!-- Extras: unique words and frequencies (shown only when requested) -->
+                <section aria-labelledby="extras-heading">
+                    <h3 id="extras-heading">Extra Analysis (unique words & frequencies)</h3>
+                    <div id="extrasContainer">
+                        <div id="uniqueWords" aria-live="polite">
+                            <h4>Unique Longest Words</h4>
+                            <div id="uniqueMaxList">(enable 'Request extras' and run analysis)</div>
+                            <h4>Unique Shortest Words</h4>
+                            <div id="uniqueMinList">(enable 'Request extras' and run analysis)</div>
+                        </div>
+                        <div id="frequencies" aria-live="polite">
+                            <h4>Top Frequencies</h4>
+                            <div id="topFrequencies">(enable 'Request extras' and run analysis)</div>
+                        </div>
+                    </div>
+                </section>
             </section>
         </article>
     </main>
