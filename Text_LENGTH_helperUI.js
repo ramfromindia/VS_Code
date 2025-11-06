@@ -53,8 +53,19 @@ export function renderNoWordsFound() {
 }
 
 export function finalizeAndAnnounce(totalWords, minLen, minWordsArr, maxLen, maxWordsArr) {
-    const uniqueMax = [...new Set(maxWordsArr)];
-    const uniqueMin = [...new Set(minWordsArr)];
+    let uniqueMax; let uniqueMin;
+    try {
+        if (typeof window !== 'undefined' && window.__TextLength_globalState && window.__TextLength_globalState.lenToWords instanceof Map) {
+            uniqueMax = Array.from(window.__TextLength_globalState.lenToWords.get(maxLen) || []);
+            uniqueMin = Array.from(window.__TextLength_globalState.lenToWords.get(minLen) || []);
+        } else {
+            uniqueMax = [...new Set(maxWordsArr)];
+            uniqueMin = [...new Set(minWordsArr)];
+        }
+    } catch (e) {
+        uniqueMax = [...new Set(maxWordsArr)];
+        uniqueMin = [...new Set(minWordsArr)];
+    }
 
     if (mostCommonWordsEl) {
         mostCommonWordsEl.textContent = uniqueMax.map(function (w) { return `${w} (${maxLen})`; }).join(', ') || 'N/A';
