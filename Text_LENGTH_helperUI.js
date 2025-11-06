@@ -85,20 +85,27 @@ export function finalizeAndAnnounce(totalWords, minLen, minWordsArr, maxLen, max
     try {
         if (typeof window !== 'undefined' && window.__TextLength_globalState) {
             const gs = window.__TextLength_globalState;
-            // Unique max/min
-            if (uniqueMaxListEl) uniqueMaxListEl.textContent = (uniqueMax.length ? uniqueMax.map(w => `${w} (${maxLen})`).join(', ') : 'N/A');
-            if (uniqueMinListEl) uniqueMinListEl.textContent = (uniqueMin.length ? uniqueMin.map(w => `${w} (${minLen})`).join(', ') : 'N/A');
+            const freqMap = gs && gs.freqMap;
+
+            // If we have frequency data, show counts in the summary area so the
+            // built-in summary differs from the unique lists below.
+            if (freqMap && typeof freqMap.get === 'function' && mostCommonWordsEl) {
+                mostCommonWordsEl.textContent = uniqueMax.map(function (w) { return `${w} (${maxLen}) — ${freqMap.get(w) || 0}`; }).join(', ') || 'N/A';
+            }
+            if (freqMap && typeof freqMap.get === 'function' && leastCommonWordsEl) {
+                leastCommonWordsEl.textContent = uniqueMin.map(function (w) { return `${w} (${minLen}) — ${freqMap.get(w) || 0}`; }).join(', ') || 'N/A';
+            }
+
+            // Unique max/min (plain lists)
+            if (uniqueMaxListEl) uniqueMaxListEl.textContent = (uniqueMax.length ? uniqueMax.join(', ') : 'N/A');
+            if (uniqueMinListEl) uniqueMinListEl.textContent = (uniqueMin.length ? uniqueMin.join(', ') : 'N/A');
 
             // Top frequencies (if freqMap exists)
-            if (topFrequenciesEl) {
+            if (topFrequenciesEl && freqMap && typeof freqMap.entries === 'function') {
                 try {
-                    const freqMap = gs.freqMap;
-                    if (freqMap && typeof freqMap.entries === 'function') {
-                        // build sorted array of [word, count]
-                        const arr = Array.from(freqMap.entries()).sort((a, b) => b[1] - a[1]);
-                        const top = arr.slice(0, 10).map(([w, c]) => `${w}: ${c}`);
-                        topFrequenciesEl.textContent = top.length ? top.join(', ') : 'N/A';
-                    }
+                    const arr = Array.from(freqMap.entries()).sort((a, b) => b[1] - a[1]);
+                    const top = arr.slice(0, 10).map(([w, c]) => `${w}: ${c}`);
+                    topFrequenciesEl.textContent = top.length ? top.join(', ') : 'N/A';
                 } catch (e) { /* ignore frequency rendering errors */ }
             }
         }
