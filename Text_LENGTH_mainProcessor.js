@@ -33,6 +33,19 @@ export function createAsyncProcessor(words, frag, globalState, options = {}) {
                     else if (len === globalState.globalMin) { globalState.globalMinWords.push(word); }
                 }
 
+                // Maintain Maps for faster unique-word grouping and lookups where available
+                try {
+                    for (let j = Math.max(startIndex, 0); j < end; j++) {
+                        const w = words[j];
+                        const l = getWordLen(w);
+                        if (!globalState.wordToLen) break; // if maps not present, skip
+                        if (!globalState.wordToLen.has(w)) globalState.wordToLen.set(w, l);
+                        let s = globalState.lenToWords.get(l);
+                        if (!s) { s = new Set(); globalState.lenToWords.set(l, s); }
+                        s.add(w);
+                    }
+                } catch (e) { /* ignore Map/Set failures */ }
+
                 if (wordLengthsEl && frag.childNodes.length > 0) {
                 try { if (typeof exposeToWindow === 'function') exposeToWindow('Text_LENGTH_mainProcessor', 'createAsyncProcessor', createAsyncProcessor); } catch (e) { try { if (typeof window !== 'undefined') { window.Text_LENGTH_mainProcessor = window.Text_LENGTH_mainProcessor || {}; window.Text_LENGTH_mainProcessor.createAsyncProcessor = createAsyncProcessor; } } catch (e2) {} }
                 }

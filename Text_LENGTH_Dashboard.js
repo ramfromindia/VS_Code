@@ -62,7 +62,16 @@ async function analyzeWordLengths() {
         let wordPattern;
         try { new RegExp("\\p{L}", "u"); wordPattern = /[\p{L}\p{N}]+(?:['-][\p{L}\p{N}]+)*/gu; }
         catch (e) { wordPattern = /[A-Za-z0-9]+(?:['-][A-Za-z0-9]+)*/g; }
-        return s.match(wordPattern) ?? [];
+            const globalState = {
+                globalMin: Infinity,
+                globalMax: 0,
+                globalMinWords: [],
+                globalMaxWords: [],
+                // Map helpers for more efficient lookups and unique-word grouping
+                wordToLen: new Map(), // word => len
+                lenToWords: new Map() // len => Set(words)
+            };
+            try { if (typeof window !== 'undefined') window.__TextLength_globalState = globalState; } catch (e) {}
     }
 
     // Chunk helper
@@ -195,6 +204,14 @@ async function analyzeWordLengths() {
                 const li = document.createElement('li');
                 li.textContent = `${it.word} (${it.len})`;
                 frag.appendChild(li);
+
+                // keep Maps in sync with worker results for fast lookups
+                try {
+                    if (!globalState.wordToLen.has(it.word)) globalState.wordToLen.set(it.word, it.len);
+                    let s = globalState.lenToWords.get(it.len);
+                    if (!s) { s = new Set(); globalState.lenToWords.set(it.len, s); }
+                    s.add(it.word);
+                } catch (e) { /* ignore Map/Set failures */ }
             }
 
             processedWords += items.length;
