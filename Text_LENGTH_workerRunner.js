@@ -60,7 +60,12 @@ export function runWorker(chunksToProcess, workerUrl = 'textLengthWorker.js', op
 
         // Send chunks to the worker
         for (let i = 0; i < chunksToProcess.length; i++) {
-            try { worker.postMessage({ type: 'process', words: chunksToProcess[i] }); } catch (e) {
+            try {
+                // includeExtras is optional; pass through to worker so it can avoid
+                // computing extra structures unless requested.
+                const includeExtras = options && options.includeExtras === true;
+                worker.postMessage({ type: 'process', words: chunksToProcess[i], extras: includeExtras });
+            } catch (e) {
                 try { worker.terminate(); } catch (t) {}
                 reject({ kind: 'postMessage-failure', error: e, processedCount: processedWords });
                 return;

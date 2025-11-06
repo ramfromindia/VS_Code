@@ -25,16 +25,19 @@
 
     // Internal processor — identical logic to previous worker: compute per-word
     // lengths (Unicode code point aware), chunk min/max and arrays of words.
-    function processChunk(words) {
+    function processChunk(words, includeExtras) {
         const items = new Array(words.length);
         let minLen = Infinity, maxLen = 0;
         const minWords = [];
         const maxWords = [];
 
-        // Map/Set helpers for efficient grouping and counting inside the worker
-        const wordToLen = new Map();
-        const lenToWords = new Map(); // len -> Set(words)
-        const freqMap = new Map();
+        // Only create Map/Set/frequency helpers when requested to reduce work
+        let wordToLen, lenToWords, freqMap;
+        if (includeExtras) {
+            wordToLen = new Map();
+            lenToWords = new Map(); // len -> Set(words)
+            freqMap = new Map();
+        }
 
         for (let i = 0; i < words.length; i++) {
             const w = words[i];
@@ -53,34 +56,39 @@
                 minWords.push(w);
             }
 
-            // Populate maps/sets (kept inside worker to avoid extra main-thread work)
-            try {
-                if (!wordToLen.has(w)) wordToLen.set(w, len);
-                let s = lenToWords.get(len);
-                if (!s) { s = new Set(); lenToWords.set(len, s); }
-                s.add(w);
-                freqMap.set(w, (freqMap.get(w) || 0) + 1);
-            } catch (e) { /* ignore Map/Set errors in constrained environments */ }
+            // Populate maps/sets only if extras were requested
+            if (includeExtras) {
+                try {
+                    if (!wordToLen.has(w)) wordToLen.set(w, len);
+                    let s = lenToWords.get(len);
+                    if (!s) { s = new Set(); lenToWords.set(len, s); }
+                    s.add(w);
+                    freqMap.set(w, (freqMap.get(w) || 0) + 1);
+                } catch (e) { /* ignore Map/Set errors in constrained environments */ }
+            }
         }
 
         // Serialize extras to plain arrays for maximum compatibility across contexts
-        const minUniqueWords = Array.from(lenToWords.get(minLen) || []);
-        const maxUniqueWords = Array.from(lenToWords.get(maxLen) || []);
-        const lenToWordsEntries = Array.from(lenToWords.entries()).map(([l, set]) => [l, Array.from(set)]);
-        const freqEntries = Array.from(freqMap.entries());
-
-        return {
+        // Only serialize extras when requested
+        const result = {
             items,
             minLen: minLen === Infinity ? 0 : minLen,
             minWords,
             maxLen,
-            maxWords,
-            // non-breaking extras (serialized forms)
-            minUniqueWords,
-            maxUniqueWords,
-            lenToWordsEntries,
-            freqEntries
+            maxWords
         };
+        if (includeExtras) {
+            const minUniqueWords = Array.from(lenToWords.get(minLen) || []);
+            const maxUniqueWords = Array.from(lenToWords.get(maxLen) || []);
+            const lenToWordsEntries = Array.from(lenToWords.entries()).map(([l, set]) => [l, Array.from(set)]);
+            const freqEntries = Array.from(freqMap.entries());
+            result.minUniqueWords = minUniqueWords;
+            result.maxUniqueWords = maxUniqueWords;
+            result.lenToWordsEntries = lenToWordsEntries;
+            result.freqEntries = freqEntries;
+        }
+
+        return result;
     }
 
     // Message handler — same shape as before
@@ -88,10 +96,9 @@
         const msg = ev.data || {};
         try {
             if (msg.type === 'process' && Array.isArray(msg.words)) {
-                // If helpers were loaded and they export specialized logic we
-                // could use them here. For now, processChunk is sufficient and
-                // avoids coupling; helpers may be used for future extensions.
-                const result = processChunk(msg.words);
+                // Respect the extras flag (only compute/send extras when requested)
+                const includeExtras = !!msg.extras;
+                const result = processChunk(msg.words, includeExtras);
                 self.postMessage(Object.assign({ type: 'result' }, result));
             }
         } catch (err) {
