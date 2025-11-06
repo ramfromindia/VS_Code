@@ -59,19 +59,10 @@ async function analyzeWordLengths() {
 
         // Inline fallback (same logic as previous implementation)
         s = s.replace(/[’‘]/g, "'");
-        let wordPattern;
-        try { new RegExp("\\p{L}", "u"); wordPattern = /[\p{L}\p{N}]+(?:['-][\p{L}\p{N}]+)*/gu; }
-        catch (e) { wordPattern = /[A-Za-z0-9]+(?:['-][A-Za-z0-9]+)*/g; }
-            const globalState = {
-                globalMin: Infinity,
-                globalMax: 0,
-                globalMinWords: [],
-                globalMaxWords: [],
-                // Map helpers for more efficient lookups and unique-word grouping
-                wordToLen: new Map(), // word => len
-                lenToWords: new Map() // len => Set(words)
-            };
-            try { if (typeof window !== 'undefined') window.__TextLength_globalState = globalState; } catch (e) {}
+    let wordPattern;
+    try { new RegExp("\\p{L}", "u"); wordPattern = /[\p{L}\p{N}]+(?:['-][\p{L}\p{N}]+)*/gu; }
+    catch (e) { wordPattern = /[A-Za-z0-9]+(?:['-][A-Za-z0-9]+)*/g; }
+    return s.match(wordPattern) ?? [];
     }
 
     // Chunk helper
@@ -185,7 +176,17 @@ async function analyzeWordLengths() {
     const chunks = chunkArray(words, CHUNK_SIZE);
 
     const frag = document.createDocumentFragment();
-    const globalState = { globalMin: Infinity, globalMax: 0, globalMinWords: [], globalMaxWords: [] };
+    const globalState = {
+        globalMin: Infinity,
+        globalMax: 0,
+        globalMinWords: [],
+        globalMaxWords: [],
+        // Map helpers for more efficient lookups and unique-word grouping
+        wordToLen: new Map(), // word => len
+        lenToWords: new Map(), // len => Set(words)
+        freqMap: new Map()
+    };
+    try { if (typeof window !== 'undefined') window.__TextLength_globalState = globalState; } catch (e) {}
 
     let remainingChunks = chunks.length;
     let processedWords = 0;
@@ -230,6 +231,42 @@ async function analyzeWordLengths() {
                     Array.prototype.push.apply(globalState.globalMinWords, msg.minWords || []);
                 }
             }
+
+            // Consume worker-provided extras (serialized Maps/sets) when available
+            try {
+                if (Array.isArray(msg.minUniqueWords)) {
+                    globalState.globalMinWords = msg.minUniqueWords.slice();
+                }
+                if (Array.isArray(msg.maxUniqueWords)) {
+                    globalState.globalMaxWords = msg.maxUniqueWords.slice();
+                }
+
+                if (Array.isArray(msg.lenToWordsEntries)) {
+                    msg.lenToWordsEntries.forEach(function (entry) {
+                        try {
+                            const lenKey = Number(entry[0]);
+                            const arr = Array.isArray(entry[1]) ? entry[1] : [];
+                            let s = globalState.lenToWords.get(lenKey);
+                            if (!s) { s = new Set(); globalState.lenToWords.set(lenKey, s); }
+                            for (let k = 0; k < arr.length; k++) {
+                                const w = arr[k];
+                                s.add(w);
+                                if (!globalState.wordToLen.has(w)) globalState.wordToLen.set(w, lenKey);
+                            }
+                        } catch (e) { /* ignore per-entry errors */ }
+                    });
+                }
+
+                if (Array.isArray(msg.freqEntries)) {
+                    msg.freqEntries.forEach(function (pair) {
+                        try {
+                            const w = pair[0];
+                            const cnt = Number(pair[1]) || 0;
+                            globalState.freqMap.set(w, (globalState.freqMap.get(w) || 0) + cnt);
+                        } catch (e) { /* ignore per-entry errors */ }
+                    });
+                }
+            } catch (e) { /* ignore extras parsing errors */ }
         } else if (msg.type === 'error') {
             console.error('Worker error:', msg.error);
         }
