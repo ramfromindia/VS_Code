@@ -38,6 +38,10 @@
                 <label for="inputText">Enter text to analyze</label><br>
                 <!-- Main textarea input read by JS via id="inputText" -->
                 <textarea id="inputText" name="inputText" rows="6" cols="60" placeholder="Enter your text here..." aria-required="true"></textarea><br>
+                <!-- Controls: checkbox to request extras and analyze button -->
+                <label for="includeExtras" style="font-weight:normal; margin-right:8px;">
+                    <input id="includeExtras" type="checkbox"> Request extras (unique words & frequencies)
+                </label>
                 <!-- Analyze button: submits text in #inputText to compute and display word lengths and summaries -->
                 <!-- aria-controls lists IDs the button will update (helps AT users understand the relationship) -->
                 <button id="analyzeBtn" type="submit" aria-controls="wordLengths mostCommonWords leastCommonWords">Analyze Word Lengths</button>
