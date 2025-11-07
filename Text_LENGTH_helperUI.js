@@ -56,114 +56,84 @@ export function renderNoWordsFound() {
 }
 
 export function finalizeAndAnnounce(totalWords, minLen, minWordsArr, maxLen, maxWordsArr) {
-    // Build clean, unique, sorted arrays for unique longest/shortest words.
+    // Build clean, unique, sorted arrays for longest/shortest words.
     // Normalize by trimming and string-coercing entries, then dedupe.
     function _toStringTrimmed(v) { return (typeof v === 'string') ? v.trim() : String(v ?? ''); }
     function _uniqueSortedFromIterable(it) {
-        try {
-            const arr = Array.from(it || []);
-            const cleaned = arr.map(_toStringTrimmed).filter(Boolean);
-            return Array.from(new Set(cleaned)).sort((a, b) => a.localeCompare(b));
-        } catch (e) { return []; }
+        const arr = Array.from(it || []);
+        const cleaned = arr.map(_toStringTrimmed).filter(Boolean);
+        return Array.from(new Set(cleaned)).sort((a, b) => a.localeCompare(b));
     }
 
-    let uniqueMax; let uniqueMin;
-    try {
-        if (typeof window !== 'undefined' && window.__TextLength_globalState && window.__TextLength_globalState.lenToWords instanceof Map) {
-            uniqueMax = _uniqueSortedFromIterable(window.__TextLength_globalState.lenToWords.get(maxLen));
-            uniqueMin = _uniqueSortedFromIterable(window.__TextLength_globalState.lenToWords.get(minLen));
-        } else {
-            uniqueMax = _uniqueSortedFromIterable(maxWordsArr);
-            uniqueMin = _uniqueSortedFromIterable(minWordsArr);
-        }
-    } catch (e) {
+    // Prefer reading unique lists from global state if available; otherwise use
+    // the arrays passed in. This avoids repeated typeof/window checks.
+    let uniqueMax, uniqueMin;
+    const gs = (typeof window !== 'undefined' && window.__TextLength_globalState) ? window.__TextLength_globalState : null;
+    if (gs && gs.lenToWords instanceof Map) {
+        uniqueMax = _uniqueSortedFromIterable(gs.lenToWords.get(maxLen));
+        uniqueMin = _uniqueSortedFromIterable(gs.lenToWords.get(minLen));
+    } else {
         uniqueMax = _uniqueSortedFromIterable(maxWordsArr);
         uniqueMin = _uniqueSortedFromIterable(minWordsArr);
     }
 
-    if (mostCommonWordsEl) {
-        mostCommonWordsEl.textContent = uniqueMax.map(function (w) { return `${w} (${maxLen})`; }).join(', ') || 'N/A';
-    }
-    if (leastCommonWordsEl) {
-        leastCommonWordsEl.textContent = uniqueMin.map(function (w) { return `${w} (${minLen})`; }).join(', ') || 'N/A';
-    }
+    // Prepare default display strings; we'll override them below if frequency
+    // data is available. Assign to DOM only once to avoid redundant writes.
+    let displayMost = uniqueMax.map(function (w) { return `${w} (${maxLen})`; }).join(', ') || 'N/A';
+    let displayLeast = uniqueMin.map(function (w) { return `${w} (${minLen})`; }).join(', ') || 'N/A';
+    let srText = `Analysis complete. ${totalWords} ${totalWords === 1 ? 'word' : 'words'}. Longest: ${uniqueMax.join(', ')} (${maxLen}). Shortest: ${uniqueMin.join(', ')} (${minLen}).`;
 
-    if (srAnnouncer) {
-        srAnnouncer.textContent = `Analysis complete. ${totalWords} ${totalWords === 1 ? 'word' : 'words'}. Longest: ${uniqueMax.join(', ')} (${maxLen}). Shortest: ${uniqueMin.join(', ')} (${minLen}).`;
-    }
-
-    // Render extras (unique lists and top frequencies) if available in global state
+    // If frequency data exists in global state, prefer to include counts and
+    // populate the unique lists with words that occur exactly once.
     try {
-        if (typeof window !== 'undefined' && window.__TextLength_globalState) {
-            const gs = window.__TextLength_globalState;
-            const freqMap = gs && gs.freqMap;
+        const freqMap = gs && gs.freqMap;
+        if (freqMap && typeof freqMap.get === 'function') {
+            const filterUniqueByCount = (arr) => Array.isArray(arr) ? arr.filter(function (w) { try { return freqMap.get(w) === 1; } catch (e) { return false; } }) : [];
 
-            // If we have frequency data, prefer to show only words that occur
-            // exactly once (case-sensitive uniqueness) among the longest/shortest.
-            if (freqMap && typeof freqMap.get === 'function') {
-                try {
-                    const filterUniqueByCount = (arr) => {
-                        if (!Array.isArray(arr)) return [];
-                        return arr.filter(function (w) {
-                            try { return freqMap.get(w) === 1; } catch (e) { return false; }
-                        });
-                    };
+            const filteredMax = filterUniqueByCount(uniqueMax);
+            const filteredMin = filterUniqueByCount(uniqueMin);
 
-                    const filteredMax = filterUniqueByCount(uniqueMax);
-                    const filteredMin = filterUniqueByCount(uniqueMin);
+            // Show counts alongside words when possible
+            const summaryMax = uniqueMax;
+            const summaryMin = uniqueMin;
 
-                    // Summary arrays: include all relevant words (deduped), and
-                    // display counts when available. This shows words even when
-                    // they occur multiple times (we display the occurrence counts).
-                    const summaryMax = uniqueMax;
-                    const summaryMin = uniqueMin;
+            displayMost = summaryMax.length ? summaryMax.map(function (w) { return (typeof freqMap.has === 'function' && freqMap.has(w)) ? `${w} (${maxLen}) — ${freqMap.get(w)}` : `${w} (${maxLen})`; }).join(', ') : 'N/A';
+            displayLeast = summaryMin.length ? summaryMin.map(function (w) { return (typeof freqMap.has === 'function' && freqMap.has(w)) ? `${w} (${minLen}) — ${freqMap.get(w)}` : `${w} (${minLen})`; }).join(', ') : 'N/A';
 
-                    if (mostCommonWordsEl) {
-                        mostCommonWordsEl.textContent = (summaryMax.length ? summaryMax.map(function (w) { return (typeof freqMap.has === 'function' && freqMap.has(w)) ? `${w} (${maxLen}) — ${freqMap.get(w)}` : `${w} (${maxLen})`; }).join(', ') : 'N/A');
-                    }
-                    if (leastCommonWordsEl) {
-                        leastCommonWordsEl.textContent = (summaryMin.length ? summaryMin.map(function (w) { return (typeof freqMap.has === 'function' && freqMap.has(w)) ? `${w} (${minLen}) — ${freqMap.get(w)}` : `${w} (${minLen})`; }).join(', ') : 'N/A');
-                    }
+            if (uniqueMaxListEl) uniqueMaxListEl.textContent = (filteredMax.length ? filteredMax.join(', ') : 'N/A');
+            if (uniqueMinListEl) uniqueMinListEl.textContent = (filteredMin.length ? filteredMin.join(', ') : 'N/A');
 
-                    // Unique lists (extras) should still only include words that
-                    // occur exactly once — those are the "unique" words.
-                    if (uniqueMaxListEl) uniqueMaxListEl.textContent = (filteredMax.length ? filteredMax.join(', ') : 'N/A');
-                    if (uniqueMinListEl) uniqueMinListEl.textContent = (filteredMin.length ? filteredMin.join(', ') : 'N/A');
+            // SR announcer with counts where available
+            const maxAnn = summaryMax.map(function (w) { return (typeof freqMap.has === 'function' && freqMap.has(w)) ? `${w} (${freqMap.get(w)})` : w; }).join(', ') || 'N/A';
+            const minAnn = summaryMin.map(function (w) { return (typeof freqMap.has === 'function' && freqMap.has(w)) ? `${w} (${freqMap.get(w)})` : w; }).join(', ') || 'N/A';
+            srText = `Analysis complete. ${totalWords} ${totalWords === 1 ? 'word' : 'words'}. Longest: ${maxAnn} (${maxLen}). Shortest: ${minAnn} (${minLen}).`;
 
-                    // Update SR announcer to mention summary words with counts when present
-                    if (srAnnouncer) {
-                        const maxAnn = summaryMax.map(function (w) { return (typeof freqMap.has === 'function' && freqMap.has(w)) ? `${w} (${freqMap.get(w)})` : w; }).join(', ') || 'N/A';
-                        const minAnn = summaryMin.map(function (w) { return (typeof freqMap.has === 'function' && freqMap.has(w)) ? `${w} (${freqMap.get(w)})` : w; }).join(', ') || 'N/A';
-                        srAnnouncer.textContent = `Analysis complete. ${totalWords} ${totalWords === 1 ? 'word' : 'words'}. Longest: ${maxAnn} (${maxLen}). Shortest: ${minAnn} (${minLen}).`;
-                    }
-                } catch (e) {
-                    // If anything goes wrong, fall back to showing the cleaned lists
-                    if (uniqueMaxListEl) uniqueMaxListEl.textContent = (uniqueMax.length ? uniqueMax.join(', ') : 'N/A');
-                    if (uniqueMinListEl) uniqueMinListEl.textContent = (uniqueMin.length ? uniqueMin.join(', ') : 'N/A');
-                }
-            } else {
-                // No frequency data available: fall back to cleaned unique lists
-                if (uniqueMaxListEl) uniqueMaxListEl.textContent = (uniqueMax.length ? uniqueMax.join(', ') : 'N/A');
-                if (uniqueMinListEl) uniqueMinListEl.textContent = (uniqueMin.length ? uniqueMin.join(', ') : 'N/A');
-            }
-
-            // Top frequencies (if freqMap exists)
-            if (topFrequenciesEl && freqMap && typeof freqMap.entries === 'function') {
+            // Top frequencies (if freqMap entries available)
+            if (topFrequenciesEl && typeof freqMap.entries === 'function') {
                 try {
                     const arr = Array.from(freqMap.entries()).sort((a, b) => b[1] - a[1]);
                     const top = arr.slice(0, 10).map(([w, c]) => `${w}: ${c}`);
                     topFrequenciesEl.textContent = top.length ? top.join(', ') : 'N/A';
                 } catch (e) { /* ignore frequency rendering errors */ }
             }
+        } else {
+            // No freqMap: ensure unique lists still show cleaned values
+            if (uniqueMaxListEl) uniqueMaxListEl.textContent = (uniqueMax.length ? uniqueMax.join(', ') : 'N/A');
+            if (uniqueMinListEl) uniqueMinListEl.textContent = (uniqueMin.length ? uniqueMin.join(', ') : 'N/A');
         }
     } catch (e) { /* ignore extras rendering errors */ }
+
+    if (mostCommonWordsEl) mostCommonWordsEl.textContent = displayMost;
+    if (leastCommonWordsEl) leastCommonWordsEl.textContent = displayLeast;
+    if (srAnnouncer) srAnnouncer.textContent = srText;
 
     if (resultsSection) resultsSection.setAttribute('aria-busy', 'false');
     if (analyzeBtnEl) {
         analyzeBtnEl.disabled = false;
         analyzeBtnEl.removeAttribute('aria-disabled');
     }
-    // Hide progress UI when the run completes
+
+    // Hide progress UI when the run completes (if available)
     try { if (typeof hideProgress === 'function') hideProgress(); } catch (e) {}
 }
 
@@ -251,17 +221,14 @@ export function hideProgress() {
     } catch (e) { /* ignore */ }
 }
 
-// Expose API on window for non-module pages
+// Optional compatibility shims for non-module pages — attach all helpers
 try {
     if (typeof window !== 'undefined') {
+        // progress API
         window.showProgress = showProgress;
         window.hideProgress = hideProgress;
-    }
-} catch (e) { /* ignore */ }
 
-// Optional compatibility shims for non-module pages
-try {
-    if (typeof window !== 'undefined') {
+        // UI helpers
         window.clearResults = clearResults;
         window.renderNoWordsFound = renderNoWordsFound;
         window.finalizeAndAnnounce = finalizeAndAnnounce;
