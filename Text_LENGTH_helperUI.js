@@ -98,28 +98,41 @@ export function finalizeAndAnnounce(totalWords, minLen, minWordsArr, maxLen, max
             const gs = window.__TextLength_globalState;
             const freqMap = gs && gs.freqMap;
 
-            // If we have frequency data, show counts in the summary area so the
-            // built-in summary differs from the unique lists below.
-            // Only append frequency counts when we actually have recorded counts
-            // (avoid showing "— 0" when a freq map exists but has no entries).
-            if (freqMap && typeof freqMap.get === 'function' && mostCommonWordsEl) {
-                mostCommonWordsEl.textContent = uniqueMax.map(function (w) {
-                    const has = typeof freqMap.has === 'function' ? freqMap.has(w) : false;
-                    const count = has ? freqMap.get(w) : null;
-                    return (count !== null && count !== undefined) ? `${w} (${maxLen}) — ${count}` : `${w} (${maxLen})`;
-                }).join(', ') || 'N/A';
-            }
-            if (freqMap && typeof freqMap.get === 'function' && leastCommonWordsEl) {
-                leastCommonWordsEl.textContent = uniqueMin.map(function (w) {
-                    const has = typeof freqMap.has === 'function' ? freqMap.has(w) : false;
-                    const count = has ? freqMap.get(w) : null;
-                    return (count !== null && count !== undefined) ? `${w} (${minLen}) — ${count}` : `${w} (${minLen})`;
-                }).join(', ') || 'N/A';
-            }
+            // If we have frequency data, prefer to show only words that occur
+            // exactly once (case-sensitive uniqueness) among the longest/shortest.
+            if (freqMap && typeof freqMap.get === 'function') {
+                try {
+                    const filterUniqueByCount = (arr) => {
+                        if (!Array.isArray(arr)) return [];
+                        return arr.filter(function (w) {
+                            try { return freqMap.get(w) === 1; } catch (e) { return false; }
+                        });
+                    };
 
-            // Unique max/min (plain lists)
-            if (uniqueMaxListEl) uniqueMaxListEl.textContent = (uniqueMax.length ? uniqueMax.join(', ') : 'N/A');
-            if (uniqueMinListEl) uniqueMinListEl.textContent = (uniqueMin.length ? uniqueMin.join(', ') : 'N/A');
+                    const filteredMax = filterUniqueByCount(uniqueMax);
+                    const filteredMin = filterUniqueByCount(uniqueMin);
+
+                    // Summary areas: show counts where available; if no unique
+                    // words exist for that length, show 'N/A'.
+                    if (mostCommonWordsEl) {
+                        mostCommonWordsEl.textContent = (filteredMax.length ? filteredMax.map(function (w) { return `${w} (${maxLen}) — ${freqMap.get(w)}`; }).join(', ') : 'N/A');
+                    }
+                    if (leastCommonWordsEl) {
+                        leastCommonWordsEl.textContent = (filteredMin.length ? filteredMin.map(function (w) { return `${w} (${minLen}) — ${freqMap.get(w)}`; }).join(', ') : 'N/A');
+                    }
+
+                    if (uniqueMaxListEl) uniqueMaxListEl.textContent = (filteredMax.length ? filteredMax.join(', ') : 'N/A');
+                    if (uniqueMinListEl) uniqueMinListEl.textContent = (filteredMin.length ? filteredMin.join(', ') : 'N/A');
+                } catch (e) {
+                    // If anything goes wrong, fall back to showing the cleaned lists
+                    if (uniqueMaxListEl) uniqueMaxListEl.textContent = (uniqueMax.length ? uniqueMax.join(', ') : 'N/A');
+                    if (uniqueMinListEl) uniqueMinListEl.textContent = (uniqueMin.length ? uniqueMin.join(', ') : 'N/A');
+                }
+            } else {
+                // No frequency data available: fall back to cleaned unique lists
+                if (uniqueMaxListEl) uniqueMaxListEl.textContent = (uniqueMax.length ? uniqueMax.join(', ') : 'N/A');
+                if (uniqueMinListEl) uniqueMinListEl.textContent = (uniqueMin.length ? uniqueMin.join(', ') : 'N/A');
+            }
 
             // Top frequencies (if freqMap exists)
             if (topFrequenciesEl && freqMap && typeof freqMap.entries === 'function') {
