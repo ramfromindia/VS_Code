@@ -56,18 +56,29 @@ export function renderNoWordsFound() {
 }
 
 export function finalizeAndAnnounce(totalWords, minLen, minWordsArr, maxLen, maxWordsArr) {
+    // Build clean, unique, sorted arrays for unique longest/shortest words.
+    // Normalize by trimming and string-coercing entries, then dedupe.
+    function _toStringTrimmed(v) { return (typeof v === 'string') ? v.trim() : String(v ?? ''); }
+    function _uniqueSortedFromIterable(it) {
+        try {
+            const arr = Array.from(it || []);
+            const cleaned = arr.map(_toStringTrimmed).filter(Boolean);
+            return Array.from(new Set(cleaned)).sort((a, b) => a.localeCompare(b));
+        } catch (e) { return []; }
+    }
+
     let uniqueMax; let uniqueMin;
     try {
         if (typeof window !== 'undefined' && window.__TextLength_globalState && window.__TextLength_globalState.lenToWords instanceof Map) {
-            uniqueMax = Array.from(window.__TextLength_globalState.lenToWords.get(maxLen) || []);
-            uniqueMin = Array.from(window.__TextLength_globalState.lenToWords.get(minLen) || []);
+            uniqueMax = _uniqueSortedFromIterable(window.__TextLength_globalState.lenToWords.get(maxLen));
+            uniqueMin = _uniqueSortedFromIterable(window.__TextLength_globalState.lenToWords.get(minLen));
         } else {
-            uniqueMax = [...new Set(maxWordsArr)];
-            uniqueMin = [...new Set(minWordsArr)];
+            uniqueMax = _uniqueSortedFromIterable(maxWordsArr);
+            uniqueMin = _uniqueSortedFromIterable(minWordsArr);
         }
     } catch (e) {
-        uniqueMax = [...new Set(maxWordsArr)];
-        uniqueMin = [...new Set(minWordsArr)];
+        uniqueMax = _uniqueSortedFromIterable(maxWordsArr);
+        uniqueMin = _uniqueSortedFromIterable(minWordsArr);
     }
 
     if (mostCommonWordsEl) {
