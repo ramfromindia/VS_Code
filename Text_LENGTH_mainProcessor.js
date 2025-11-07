@@ -43,6 +43,12 @@ export function createAsyncProcessor(words, frag, globalState, options = {}) {
                         let s = globalState.lenToWords.get(l);
                         if (!s) { s = new Set(); globalState.lenToWords.set(l, s); }
                         s.add(w);
+                        // Maintain frequency counts (increment per occurrence) when requested
+                        if (globalState.freqMap) {
+                            try {
+                                globalState.freqMap.set(w, (globalState.freqMap.get(w) || 0) + 1);
+                            } catch (e2) { /* ignore per-entry errors */ }
+                        }
                     }
                 } catch (e) { /* ignore Map/Set failures */ }
 
