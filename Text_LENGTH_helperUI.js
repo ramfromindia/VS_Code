@@ -225,7 +225,7 @@ export function hideProgress() {
 try {
     if (typeof window !== 'undefined') {
         // progress API
-        window.showProgress = showProgress;
+        window.onprogress = showProgress;
         window.hideProgress = hideProgress;
 
         // UI helpers
