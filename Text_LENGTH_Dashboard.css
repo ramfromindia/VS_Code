@@ -248,29 +248,8 @@ button:focus-visible, textarea:focus-visible, a:focus-visible {
 /* Original moving sheen (blur) was expensive; keep a cheaper sheen below and
    respect reduced-motion. The expensive version is retained above for visual
    parity in case you want to revert; prefer the cheaper animated sheen instead. */
-.progress-bar-fill::after {
-	content: '';
-	position: absolute;
-	top: -40%;
-	left: -30%;
-	width: 40%;
-	height: 180%;
-	background: linear-gradient(120deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.0) 100%);
-	transform: rotate(12deg);
-	filter: blur(6px);
-	opacity: 0.9;
-	animation: shimmer 2.2s linear infinite;
-}
-
-@keyframes shimmer {
-	from { transform: translateX(-120%) rotate(12deg); }
-	to { transform: translateX(220%) rotate(12deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.progress-bar-fill { transition: none !important; }
-	.progress-bar-fill::after { animation: none !important; }
-}
+	/* Note: the original heavy blur-based sheen was removed to reduce rasterization
+	   and large texture memory usage. A cheaper, conditional sheen is used below. */
 /* Cheaper decorative sheen: no blur and only animates when the container has
    the .is-animating class. This reduces continuous raster work when idle. */
 .progress-bar-fill::after {
