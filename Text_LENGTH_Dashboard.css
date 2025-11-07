@@ -1,4 +1,6 @@
 
+/* Root CSS variables: theme colors, spacing and transition timings
+   These variables centralize look-and-feel and make small theme changes easy. */
 :root{
 	--color-primary: #1976d2;
 	--color-primary-dark: #1565c0;
@@ -15,9 +17,10 @@
 	--transition-fast: 0.2s;
 }
 
-/* sensible box-sizing reset */
+/* Global box-sizing reset: use border-box everywhere to simplify sizing math */
 *, *::before, *::after { box-sizing: border-box; }
 
+/* Base document typography and background color */
 body {
 	font-family: 'Segoe UI', Arial, sans-serif;
 	background: var(--bg-page);
@@ -26,6 +29,9 @@ body {
 	color: var(--text);
 }
 
+/* Main centered card container
+   - constrains content width for readability
+   - subtle rounded corners and shadow (reduced blur to lower paint cost) */
 .container {
 	max-width: 700px;
 	margin: 40px auto;
@@ -36,6 +42,7 @@ body {
 	padding: var(--space-lg) 24px;
 }
 
+/* Primary page heading */
 h1 {
 	text-align: center;
 	font-size: 2.2rem;
@@ -43,6 +50,7 @@ h1 {
 	color: var(--color-primary);
 }
 
+/* Textarea styling: fluid width, constrained height and accessible padding */
 textarea {
 	width: 100%;
 	min-height: 100px;
@@ -56,6 +64,7 @@ textarea {
 	overflow: auto;
 }
 
+/* Primary button styles: clear affordance and small background transition */
 button {
 	background: var(--color-primary);
 	color: #fff;
@@ -71,23 +80,26 @@ button:hover {
 	background: var(--color-primary-dark);
 }
 
-/* disabled state */
+/* Disabled button state: reduced contrast and not-allowed cursor */
 button[disabled], button:disabled {
 	background: #bdbdbd;
 	cursor: not-allowed;
 	opacity: 0.9;
 }
 
+/* Results area spacing */
 #results {
 	margin-top: 16px;
 }
 
+/* Subheadings share muted color and spacing */
 h2, h3 {
 	color: var(--muted);
 	margin-top: 24px;
 	margin-bottom: 8px;
 }
 
+/* Result boxes: rounded, padded and allow long words to wrap */
 #wordLengths, #mostCommonWords, #leastCommonWords {
 	border-radius: 6px;
 	padding: 10px;
@@ -96,6 +108,7 @@ h2, h3 {
 	word-break: break-word;
 }
 
+/* Responsive adjustments for small screens */
 @media (max-width: 600px) {
 	.container {
 		padding: 16px 6px;
@@ -112,7 +125,7 @@ h2, h3 {
 	}
 }
 
-/* Accessibility utilities and semantic-list styling */
+/* Accessibility utility: visually-hide content but keep it available to screen readers */
 .visually-hidden {
 	position: absolute !important;
 	width: 1px !important;
@@ -125,13 +138,14 @@ h2, h3 {
 	border: 0 !important;
 }
 
-/* Semantic result list styling */
+/* Word lengths list: reset default list styles and add inner padding */
 #wordLengths {
 	list-style: none;
 	padding: 8px;
 	margin: 0 0 12px 0;
 }
 
+/* Each list item: subtle background and spacing for readability */
 #wordLengths li {
 	padding: 8px 10px;
 	border-radius: 6px;
@@ -140,7 +154,8 @@ h2, h3 {
 	word-break: break-word;
 }
 
-/* Status/result boxes */
+/* Status/result boxes: visually distinct background colors and padding
+   Use clear foreground color for contrast */
 #mostCommonWords { background: var(--status-blue); }
 #leastCommonWords { background: var(--status-green); }
 #mostCommonWords, #leastCommonWords {
@@ -150,19 +165,18 @@ h2, h3 {
 	color: #0b2340; /* ensure readable contrast */
 }
 
-/* Focus styles for keyboard users - prefer focus-visible
-   Keep default outlines for accessibility; apply visible outline for keyboard users */
+/* Focus-visible outlines: visible indicator for keyboard navigation */
 button:focus-visible, textarea:focus-visible, a:focus-visible {
 	outline: 3px solid rgba(25,118,210,0.25);
 	outline-offset: 3px;
 }
 
-/* Respect reduced motion preference */
+/* Respect reduced-motion user preference: disable non-essential animations/transitions */
 @media (prefers-reduced-motion: reduce) {
 	* { transition: none !important; animation: none !important; }
 }
 
-/* Worker fallback/notice styling */
+/* Fallback/notice shown when web worker isn't available or falls back */
 .worker-warning {
 	background: #fff3cd;
 	color: #856404;
@@ -173,7 +187,9 @@ button:focus-visible, textarea:focus-visible, a:focus-visible {
 	font-size: 90%;
 }
 
-/* Progress bar: subtle, JS-driven animation (width controlled by JS via requestAnimationFrame) */
+/* Progress bar component
+   - hidden by default, shown by JS when needed
+   - small height and pill shape for subtleness */
 .progress-bar {
 	width: 100%;
 	height: 8px;
@@ -186,6 +202,9 @@ button:focus-visible, textarea:focus-visible, a:focus-visible {
 /* Optimized: use transform (scaleX) instead of width to avoid layout/reflow
    Reduce layered gradient complexity and shadow blur; use containment to
    limit paint scope. JS should update --progress (0..1) or set transform directly. */
+/* Optimization: isolate progress-bar paint and use transform-based updates
+   - use CSS variable --progress (0..1) or set transform directly from JS
+   - will-change is toggled only while animating to avoid persistent layer allocation */
 .progress-bar { contain: paint; }
 .progress-bar-fill {
 	height: 100%;
@@ -210,6 +229,8 @@ button:focus-visible, textarea:focus-visible, a:focus-visible {
 .progress-bar.is-animating .progress-bar-fill { will-change: transform; }
 
 /* Subtle striped overlay for texture */
+/* Subtle striped overlay: decorative texture. If performance is critical,
+   consider replacing with a small tiled image or removing it. */
 .progress-bar-fill::before {
 	content: '';
 	position: absolute;
@@ -224,6 +245,9 @@ button:focus-visible, textarea:focus-visible, a:focus-visible {
 }
 
 /* Moving sheen (highlight) — decorative only; respects user reduced-motion */
+/* Original moving sheen (blur) was expensive; keep a cheaper sheen below and
+   respect reduced-motion. The expensive version is retained above for visual
+   parity in case you want to revert; prefer the cheaper animated sheen instead. */
 .progress-bar-fill::after {
 	content: '';
 	position: absolute;
@@ -247,8 +271,8 @@ button:focus-visible, textarea:focus-visible, a:focus-visible {
 	.progress-bar-fill { transition: none !important; }
 	.progress-bar-fill::after { animation: none !important; }
 }
-/* Decorative sheen: cheaper (no blur). Only animate when .is-animating is present
-   so the browser doesn't run an infinite animation when idle. */
+/* Cheaper decorative sheen: no blur and only animates when the container has
+   the .is-animating class. This reduces continuous raster work when idle. */
 .progress-bar-fill::after {
 	content: '';
 	position: absolute;
