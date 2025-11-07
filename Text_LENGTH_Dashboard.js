@@ -106,6 +106,24 @@ async function analyzeWordLengths() {
                             else if (len === globalStateLocal.globalMin) { globalStateLocal.globalMinWords.push(word); }
                         }
 
+                        // Maintain Maps and frequency counts when extras are requested
+                        try {
+                            for (let j = Math.max(startIndex, 0); j < end; j++) {
+                                const w = wordsLocal[j];
+                                const l = getWordLen(w);
+                                if (!globalStateLocal.wordToLen) break;
+                                if (!globalStateLocal.wordToLen.has(w)) globalStateLocal.wordToLen.set(w, l);
+                                let s = globalStateLocal.lenToWords.get(l);
+                                if (!s) { s = new Set(); globalStateLocal.lenToWords.set(l, s); }
+                                s.add(w);
+                                if (globalStateLocal.freqMap) {
+                                    try {
+                                        globalStateLocal.freqMap.set(w, (globalStateLocal.freqMap.get(w) || 0) + 1);
+                                    } catch (e2) { /* ignore per-entry errors */ }
+                                }
+                            }
+                        } catch (e) { /* ignore Map/Set failures */ }
+
                         if (wordLengthsEl && fragLocal.childNodes.length > 0) {
                             wordLengthsEl.appendChild(fragLocal);
                         }

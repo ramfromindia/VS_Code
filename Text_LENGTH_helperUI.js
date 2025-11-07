@@ -89,11 +89,21 @@ export function finalizeAndAnnounce(totalWords, minLen, minWordsArr, maxLen, max
 
             // If we have frequency data, show counts in the summary area so the
             // built-in summary differs from the unique lists below.
+            // Only append frequency counts when we actually have recorded counts
+            // (avoid showing "— 0" when a freq map exists but has no entries).
             if (freqMap && typeof freqMap.get === 'function' && mostCommonWordsEl) {
-                mostCommonWordsEl.textContent = uniqueMax.map(function (w) { return `${w} (${maxLen}) — ${freqMap.get(w) || 0}`; }).join(', ') || 'N/A';
+                mostCommonWordsEl.textContent = uniqueMax.map(function (w) {
+                    const has = typeof freqMap.has === 'function' ? freqMap.has(w) : false;
+                    const count = has ? freqMap.get(w) : null;
+                    return (count !== null && count !== undefined) ? `${w} (${maxLen}) — ${count}` : `${w} (${maxLen})`;
+                }).join(', ') || 'N/A';
             }
             if (freqMap && typeof freqMap.get === 'function' && leastCommonWordsEl) {
-                leastCommonWordsEl.textContent = uniqueMin.map(function (w) { return `${w} (${minLen}) — ${freqMap.get(w) || 0}`; }).join(', ') || 'N/A';
+                leastCommonWordsEl.textContent = uniqueMin.map(function (w) {
+                    const has = typeof freqMap.has === 'function' ? freqMap.has(w) : false;
+                    const count = has ? freqMap.get(w) : null;
+                    return (count !== null && count !== undefined) ? `${w} (${minLen}) — ${count}` : `${w} (${minLen})`;
+                }).join(', ') || 'N/A';
             }
 
             // Unique max/min (plain lists)
