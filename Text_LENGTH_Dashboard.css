@@ -280,3 +280,9 @@ button:focus-visible, textarea:focus-visible, a:focus-visible {
 	.progress-bar-fill { transition: none !important; }
 	.progress-bar.is-animating .progress-bar-fill::after { animation: none !important; }
 }
+
+/* ID selector for the 'Request extras' label (moved from inline HTML style) */
+#includeExtrasLabel {
+    font-weight: normal;
+    margin-right: 8px;
+}
