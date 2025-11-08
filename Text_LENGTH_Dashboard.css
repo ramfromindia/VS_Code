@@ -20,16 +20,22 @@
 	--space-lg: 32px;
 	--space-md: 16px;
 	--transition-fast: 0.2s;
+
 }
 
 /* box-sizing reset (unchanged) */
-*, *::before, *::after { box-sizing: border-box; }
+*, *::before, *::after {
+	box-sizing: border-box;
+}
 
 /* Base document */
 body{
 	font-family: 'Segoe UI', Arial, sans-serif;
 	background: var(--bg-page);
-	margin: 0; padding: 0; color: var(--text);
+	margin: 0;
+	padding: 0;
+	color: var(--text);
+
 }
 
 /* Centered card container — grouped and kept original sizing/shadow */
@@ -40,61 +46,155 @@ body{
 	border-radius: var(--card-radius);
 	box-shadow: 0 2px 8px rgba(0,0,0,0.06); /* reduced blur for paint cost */
 	padding: var(--space-lg) 24px;
+
 }
 
 /* Heading */
-h1{ text-align:center; font-size:2.2rem; margin-bottom:24px; color:var(--color-primary); }
+h1{
+	text-align:center;
+	font-size:2.2rem;
+	margin-bottom:24px;
+	color:var(--color-primary);
+
+}
 
 /* Form controls (textarea + buttons) — grouped to reduce repetition */
 textarea{
-	width:100%; min-height:100px; max-height:40vh; font-size:1rem;
-	padding:12px; border-radius:var(--radius); border:1px solid #bdbdbd;
-	margin-bottom:16px; resize:vertical; overflow:auto;
+	width:100%;
+	min-height:100px;
+	max-height:40vh;
+	font-size:1rem;
+
+	padding:12px;
+	border-radius:var(--radius);
+	border:1px solid #bdbdbd;
+
+	margin-bottom:16px;
+	resize:vertical;
+	overflow:auto;
+
 }
 
 button{
-	background:var(--color-primary); color:#fff; border:0; border-radius:var(--radius);
-	padding:10px 24px; font-size:1rem; cursor:pointer;
-	transition:background var(--transition-fast); margin-bottom:24px;
+	background:var(--color-primary);
+	color:#fff;
+	border:0;
+	border-radius:var(--radius);
+
+	padding:10px 24px;
+	font-size:1rem;
+	cursor:pointer;
+
+	transition:background var(--transition-fast);
+	margin-bottom:24px;
+
 }
-button:hover{ background:var(--color-primary-dark); }
-button[disabled], button:disabled{ background:#bdbdbd; cursor:not-allowed; opacity:0.9; }
+button:hover{
+	background:var(--color-primary-dark);
+}
+button[disabled], button:disabled{
+	background:#bdbdbd;
+	cursor:not-allowed;
+	opacity:0.9;
+
+}
 
 /* Results spacing and headings */
-#results{ margin-top:16px }
-h2,h3{ color:var(--muted); margin:24px 0 8px }
+#results{
+	margin-top:16px;
+}
+
+h2,h3{
+	color:var(--muted);
+	margin:24px 0 8px;
+
+}
 
 /* Result boxes grouped — removed duplicated declarations and kept word-break */
 #wordLengths, #mostCommonWords, #leastCommonWords{
-	border-radius:6px; padding:10px; margin-bottom:12px; font-size:1.05rem; word-break:break-word;
+	border-radius:6px;
+	padding:10px;
+	margin-bottom:12px;
+	font-size:1.05rem;
+	word-break:break-word;
+
 }
 
 /* List specifics */
-#wordLengths{ list-style:none; padding:8px; margin:0 0 12px 0 }
-#wordLengths li{ padding:8px 10px; border-radius:6px; background:rgba(255,255,255,0.6); margin-bottom:8px }
+#wordLengths{
+	list-style:none;
+	padding:8px;
+	margin:0 0 12px 0;
+
+}
+
+#wordLengths li{
+	padding:8px 10px;
+	border-radius:6px;
+	background:rgba(255,255,255,0.6);
+	margin-bottom:8px;
+
+}
 
 /* Distinct backgrounds for status boxes, shared contrast color below */
-#mostCommonWords{ background:var(--status-blue) }
-#leastCommonWords{ background:var(--status-green) }
-#mostCommonWords, #leastCommonWords{ padding:10px; border-radius:6px; min-height:2em; color:#0b2340 }
+#mostCommonWords{
+	background:var(--status-blue);
+
+}
+
+#leastCommonWords{
+	background:var(--status-green);
+
+}
+
+#mostCommonWords, #leastCommonWords{
+	padding:10px;
+	border-radius:6px;
+	min-height:2em;
+	color:#0b2340;
+
+}
 
 /* Accessibility helpers */
 .visually-hidden{
 	/* keep for screen readers — important to remain '!important' to override inline styles */
-	position:absolute!important; width:1px!important; height:1px!important; padding:0!important; margin:-1px!important;
-	overflow:hidden!important; clip:rect(0 0 0 0)!important; white-space:nowrap!important; border:0!important;
+	position:absolute!important;
+	width:1px!important;
+	height:1px!important;
+	padding:0!important;
+	margin:-1px!important;
+
+	overflow:hidden!important;
+	clip:rect(0 0 0 0)!important;
+	white-space:nowrap!important;
+	border:0!important;
+
 }
 
 /* Focus-visible grouping (keyboard navigation) */
 button:focus-visible, textarea:focus-visible, a:focus-visible{
-	outline:3px solid rgba(25,118,210,0.25); outline-offset:3px;
+	outline:3px solid rgba(25,118,210,0.25);
+	outline-offset:3px;
+
 }
 
 /* Reduced motion preference — keep global rule but don't override critical transitions used by JS unless requested */
-@media (prefers-reduced-motion: reduce){ *{ transition:none!important; animation:none!important } }
+@media (prefers-reduced-motion: reduce){
+	*{ transition:none!important; animation:none!important }
+
+}
 
 /* Worker fallback notice (unchanged) */
-.worker-warning{ background:#fff3cd; color:#856404; border:1px solid #ffeeba; padding:6px; margin:6px 0; border-radius:3px; font-size:90% }
+.worker-warning{
+	background:#fff3cd;
+	color:#856404;
+	border:1px solid #ffeeba;
+	padding:6px;
+	margin:6px 0;
+	border-radius:3px;
+	font-size:90%;
+
+}
 
 /*
    Progress bar: consolidated into a single logical block.
@@ -104,42 +204,111 @@ button:focus-visible, textarea:focus-visible, a:focus-visible{
    - small, cheap sheen overlay animated only when `.is-animating` is present
 */
 .progress-bar{
-	width:100%; height:8px; background:rgba(0,0,0,0.06); border-radius:999px; overflow:hidden;
-	margin:12px 0 8px 0; display:none; /* toggled by JS */ contain:paint;
+	width:100%;
+	height:8px;
+	background:rgba(0,0,0,0.06);
+	border-radius:999px;
+	overflow:hidden;
+
+	margin:12px 0 8px 0;
+	display:none; /* toggled by JS */
+	contain:paint;
+
 }
+
 .progress-bar-fill{
-	height:100%; transform-origin:left center; transform:scaleX(var(--progress,0)); transition:transform 160ms linear;
+	height:100%;
+	transform-origin:left center;
+	transform:scaleX(var(--progress,0));
+	transition:transform 160ms linear;
+
 	background-image: linear-gradient(90deg,#4fc3f7 0%,var(--color-primary) 60%), linear-gradient(45deg, rgba(255,255,255,0.04) 25%, rgba(0,0,0,0.03) 25%, rgba(0,0,0,0.03) 50%);
-	background-blend-mode:overlay; background-size:auto,12px 12px; border-radius:999px; box-shadow:0 1px 4px rgba(25,118,210,0.08) inset;
-	position:relative; overflow:hidden;
+	background-blend-mode:overlay;
+	background-size:auto,12px 12px;
+	border-radius:999px;
+	box-shadow:0 1px 4px rgba(25,118,210,0.08) inset;
+
+	position:relative;
+	overflow:hidden;
+
 }
-.progress-bar.is-animating .progress-bar-fill{ will-change:transform }
+
+.progress-bar.is-animating .progress-bar-fill{
+	will-change:transform;
+
+}
 
 /* Decorative stripe overlay (keeps subtle texture) */
-.progress-bar-fill::before{ content:''; position:absolute; left:0; top:0; right:0; bottom:0; pointer-events:none; mix-blend-mode:overlay; opacity:.9;
+.progress-bar-fill::before{
+	content:'';
+	position:absolute;
+	left:0;
+	top:0;
+	right:0;
+	bottom:0;
+	pointer-events:none;
+	mix-blend-mode:overlay;
+	opacity:.9;
+
 	background-image:repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0 6px, rgba(0,0,0,0.03) 6px 12px);
+
 }
 
 /* Cheaper sheen animation — only enabled when `.is-animating` is present */
 .progress-bar-fill::after{
-	content:''; position:absolute; top:0; left:0; width:30%; height:100%; pointer-events:none; transform:translateX(-120%) rotate(12deg);
-	background:linear-gradient(120deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06) 50%, rgba(255,255,255,0)); mix-blend-mode:screen; opacity:.9;
+	content:'';
+	position:absolute;
+	top:0;
+	left:0;
+	width:30%;
+	height:100%;
+	pointer-events:none;
+	transform:translateX(-120%) rotate(12deg);
+
+	background:linear-gradient(120deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06) 50%, rgba(255,255,255,0));
+	mix-blend-mode:screen;
+	opacity:.9;
+
 }
-.progress-bar.is-animating .progress-bar-fill::after{ animation:shimmer 1.8s linear infinite }
-@keyframes shimmer{ from{ transform:translateX(-120%) rotate(12deg) } to{ transform:translateX(220%) rotate(12deg) } }
+.progress-bar.is-animating .progress-bar-fill::after{
+	animation:shimmer 1.8s linear infinite;
+
+}
+@keyframes shimmer{
+	from{
+		transform:translateX(-120%) rotate(12deg);
+	}
+	to{
+		transform:translateX(220%) rotate(12deg);
+	}
+
+}
 
 /* Ensure the shimmer/transition respects reduced-motion preference */
-@media (prefers-reduced-motion: reduce){ .progress-bar-fill{ transition:none!important } .progress-bar.is-animating .progress-bar-fill::after{ animation:none!important } }
+@media (prefers-reduced-motion: reduce){
+	.progress-bar-fill{ transition:none!important }
+
+	.progress-bar.is-animating .progress-bar-fill::after{ animation:none!important }
+
+}
 
 /* Small label helper (kept and documented) */
-#includeExtrasLabel{ font-weight:normal; margin-right:8px }
+#includeExtrasLabel{
+	font-weight:normal;
+	margin-right:8px;
+
+}
 
 /* Responsive tweaks — grouped and kept compact */
 @media (max-width:600px){
 	.container{ padding:16px 6px }
+
 	h1{ font-size:1.4rem }
+
 	textarea{ font-size:0.95rem }
+
 	button{ font-size:0.95rem; padding:8px 16px }
+
 }
 
 /* End of optimized CSS */
