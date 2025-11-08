@@ -100,10 +100,29 @@ export function finalizeAndAnnounce(totalWords, minLen, minWordsArr, maxLen, max
             displayMost = summaryMax.length ? summaryMax.map(function (w) { return (typeof freqMap.has === 'function' && freqMap.has(w)) ? `${w} (${maxLen}) — ${freqMap.get(w)}` : `${w} (${maxLen})`; }).join(', ') : 'N/A';
             displayLeast = summaryMin.length ? summaryMin.map(function (w) { return (typeof freqMap.has === 'function' && freqMap.has(w)) ? `${w} (${minLen}) — ${freqMap.get(w)}` : `${w} (${minLen})`; }).join(', ') : 'N/A';
 
-            if (uniqueMaxListEl) uniqueMaxListEl.textContent = (filteredMax.length ? filteredMax.join(', ') : 'N/A');
-            if (uniqueMinListEl) uniqueMinListEl.textContent = (filteredMin.length ? filteredMin.join(', ') : 'N/A');
+            // Helper: find nearest length bucket (searching outward by length)
+            function findNearestUnique(lenToWordsMap, freqMapLocal, startLen, lowBound, highBound, step) {
+                if (!lenToWordsMap || typeof lenToWordsMap.get !== 'function') return { len: startLen, words: [] };
+                for (let l = startLen; (step < 0 ? l >= lowBound : l <= highBound); l += step) {
+                    try {
+                        const s = lenToWordsMap.get(l);
+                        if (!s) continue;
+                        const arr = Array.from(s).map(_toStringTrimmed).filter(Boolean);
+                        const uniques = arr.filter(function (w) { try { return freqMapLocal.get(w) === 1; } catch (e) { return false; } });
+                        if (uniques.length) return { len: l, words: uniques };
+                    } catch (e) { /* ignore per-bucket errors and continue searching */ }
+                }
+                return { len: startLen, words: [] };
+            }
 
-            // SR announcer with counts where available
+            // Prefer unique words at the same length; if none, search nearest lengths
+            const nearestMax = findNearestUnique(gs && gs.lenToWords, freqMap, maxLen, (typeof gs?.globalMin === 'number' ? gs.globalMin : minLen), (typeof gs?.globalMax === 'number' ? gs.globalMax : maxLen), -1);
+            const nearestMin = findNearestUnique(gs && gs.lenToWords, freqMap, minLen, (typeof gs?.globalMin === 'number' ? gs.globalMin : minLen), (typeof gs?.globalMax === 'number' ? gs.globalMax : maxLen), 1);
+
+            if (uniqueMaxListEl) uniqueMaxListEl.textContent = (nearestMax.words.length ? nearestMax.words.join(', ') : (filteredMax.length ? filteredMax.join(', ') : 'N/A'));
+            if (uniqueMinListEl) uniqueMinListEl.textContent = (nearestMin.words.length ? nearestMin.words.join(', ') : (filteredMin.length ? filteredMin.join(', ') : 'N/A'));
+
+            // SR announcer with counts where available (keep original summaries)
             const maxAnn = summaryMax.map(function (w) { return (typeof freqMap.has === 'function' && freqMap.has(w)) ? `${w} (${freqMap.get(w)})` : w; }).join(', ') || 'N/A';
             const minAnn = summaryMin.map(function (w) { return (typeof freqMap.has === 'function' && freqMap.has(w)) ? `${w} (${freqMap.get(w)})` : w; }).join(', ') || 'N/A';
             srText = `Analysis complete. ${totalWords} ${totalWords === 1 ? 'word' : 'words'}. Longest: ${maxAnn} (${maxLen}). Shortest: ${minAnn} (${minLen}).`;
