@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module Debug Test</title>
+</head>
+<body>
+    <h1>Module Loading Debug</h1>
+    <div id="output"></div>
+    <script>
+        const output = document.getElementById('output');
+        
+        // Test if the browser supports modules
+        if ('noModule' in HTMLScriptElement.prototype) {
+            output.innerHTML += '<p>✅ Browser supports ES modules</p>';
+        } else {
+            output.innerHTML += '<p>❌ Browser does not support ES modules</p>';
+        }
+        
+        // Try to load the main module and catch any errors
+        output.innerHTML += '<p>Testing module import...</p>';
+    </script>
+    
+    <script type="module">
+        const moduleOutput = document.getElementById('output');
+        try {
+            import('./Text_LENGTH_Dashboard.js').then(() => {
+                moduleOutput.innerHTML += '<p>✅ Main module loaded successfully</p>';
+                moduleOutput.innerHTML += '<p>✅ JavaScript should be working now</p>';
+            }).catch(err => {
+                moduleOutput.innerHTML += `<p>❌ Module import failed: ${err.message}</p>`;
+                console.error('Module import error:', err);
+            });
+        } catch (err) {
+            moduleOutput.innerHTML += `<p>❌ Import statement failed: ${err.message}</p>`;
+            console.error('Import error:', err);
+        }
+    </script>
+    
+    <script nomodule>
+        document.getElementById('output').innerHTML += '<p>⚠️ Using nomodule fallback - modules not supported</p>';
+    </script>
+</body>
+</html>

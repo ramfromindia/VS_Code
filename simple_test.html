@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Test - Word Length Analyzer</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        textarea { width: 100%; height: 100px; margin: 10px 0; }
+        button { padding: 10px 20px; font-size: 16px; }
+        #results { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <h1>Simple Word Length Test</h1>
+    <form id="testForm">
+        <textarea id="inputText" placeholder="Enter text here...">Hello world test</textarea><br>
+        <button type="submit">Analyze</button>
+    </form>
+    <div id="results"></div>
+
+    <script>
+        console.log('Script loaded');
+        
+        document.getElementById('testForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('Form submitted');
+            
+            const text = document.getElementById('inputText').value;
+            console.log('Input text:', text);
+            
+            // Simple tokenization
+            const words = text.match(/\w+/g) || [];
+            console.log('Words found:', words);
+            
+            // Calculate lengths
+            const results = words.map(word => `${word} (${word.length})`);
+            
+            // Display results
+            document.getElementById('results').innerHTML = 
+                '<strong>Results:</strong><br>' + results.join('<br>');
+            
+            console.log('✅ JavaScript is working!');
+        });
+        
+        console.log('Event listener attached');
+    </script>
+</body>
+</html>
