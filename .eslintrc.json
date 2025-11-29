@@ -1,105 +1,105 @@
 {
   "env": {
-    "browser": true,
-    "es2021": true,
-    "node": true
+    "browser": true, // Enable browser global variables (window, document, etc.)
+    "es2021": true,  // Enable ES2021 global variables and syntax
+    "node": true     // Enable Node.js global variables and scoping
   },
   "extends": [
-    "eslint:recommended"
+    "eslint:recommended" // Use ESLint's recommended rule set as base
   ],
   "parserOptions": {
-    "ecmaVersion": "latest",
-    "sourceType": "module"
+    "ecmaVersion": "latest", // Parse latest ECMAScript version
+    "sourceType": "module"   // Enable ES6 import/export modules
   },
   "rules": {
     // Possible Errors
-    "no-console": "warn",
-    "no-debugger": "warn",
-    "no-duplicate-case": "error",
-    "no-empty": "warn",
-    "no-extra-semi": "error",
-    "no-func-assign": "error",
-    "no-irregular-whitespace": "error",
-    "no-unreachable": "error",
-    "no-unused-vars": "warn",
-    "valid-typeof": "error",
+    "no-console": "warn",            // Warn about console.log statements
+    "no-debugger": "warn",           // Warn about debugger statements
+    "no-duplicate-case": "error",    // Prevent duplicate cases in switch statements
+    "no-empty": "warn",              // Warn about empty block statements
+    "no-extra-semi": "error",        // Disallow unnecessary semicolons
+    "no-func-assign": "error",       // Prevent overwriting function declarations
+    "no-irregular-whitespace": "error", // Disallow irregular whitespace
+    "no-unreachable": "error",       // Prevent unreachable code after return/throw
+    "no-unused-vars": "warn",        // Warn about declared but unused variables
+    "valid-typeof": "error",         // Enforce valid strings in typeof comparisons
 
     // Best Practices
-    "curly": "error",
-    "dot-notation": "warn",
-    "eqeqeq": "error",
-    "no-alert": "warn",
-    "no-else-return": "warn",
-    "no-empty-function": "warn",
-    "no-eval": "error",
-    "no-implied-eval": "error",
-    "no-invalid-this": "error",
-    "no-loop-func": "error",
-    "no-multi-spaces": "error",
-    "no-new": "warn",
-    "no-redeclare": "error",
-    "no-return-assign": "error",
-    "no-script-url": "error",
-    "no-self-compare": "error",
-    "no-sequences": "error",
-    "no-throw-literal": "error",
-    "no-unused-expressions": "error",
-    "no-useless-call": "error",
-    "no-useless-concat": "error",
-    "no-useless-return": "error",
-    "prefer-promise-reject-errors": "error",
-    "radix": "error",
+    "curly": "error",                     // Require curly braces around blocks
+    "dot-notation": "warn",               // Prefer dot notation over bracket notation
+    "eqeqeq": "error",                   // Require strict equality (=== and !==)
+    "no-alert": "warn",                   // Warn about alert/confirm/prompt usage
+    "no-else-return": "warn",             // Disallow else after return in if
+    "no-empty-function": "warn",          // Warn about empty functions
+    "no-eval": "error",                   // Disallow use of eval()
+    "no-implied-eval": "error",           // Disallow implied eval (setTimeout with string)
+    "no-invalid-this": "error",           // Disallow this outside of classes/methods
+    "no-loop-func": "error",              // Disallow function declarations in loops
+    "no-multi-spaces": "error",           // Disallow multiple consecutive spaces
+    "no-new": "warn",                     // Warn about new operator without assignment
+    "no-redeclare": "error",              // Disallow redeclaring variables
+    "no-return-assign": "error",          // Disallow assignment in return statements
+    "no-script-url": "error",             // Disallow javascript: URLs
+    "no-self-compare": "error",           // Disallow comparisons where both sides are identical
+    "no-sequences": "error",              // Disallow comma operator
+    "no-throw-literal": "error",          // Require throwing Error objects
+    "no-unused-expressions": "error",     // Disallow unused expressions
+    "no-useless-call": "error",           // Disallow unnecessary .call() and .apply()
+    "no-useless-concat": "error",         // Disallow unnecessary string concatenation
+    "no-useless-return": "error",         // Disallow redundant return statements
+    "prefer-promise-reject-errors": "error", // Require Error objects as Promise rejection reasons
+    "radix": "error",                     // Require radix parameter in parseInt()
 
     // Stylistic Issues
-    "array-bracket-spacing": ["error", "never"],
-    "block-spacing": "error",
-    "brace-style": ["error", "1tbs", { "allowSingleLine": true }],
-    "camelcase": ["error", { "properties": "never" }],
-    "comma-dangle": ["error", "never"],
-    "comma-spacing": "error",
-    "comma-style": "error",
-    "computed-property-spacing": "error",
-    "func-call-spacing": "error",
-    "indent": ["error", 2, { "SwitchCase": 1 }],
-    "key-spacing": "error",
-    "keyword-spacing": "error",
-    "linebreak-style": ["error", "windows"],
-    "max-len": ["warn", { "code": 100, "ignoreUrls": true }],
-    "new-cap": "error",
-    "new-parens": "error",
-    "no-array-constructor": "error",
-    "no-mixed-spaces-and-tabs": "error",
-    "no-multiple-empty-lines": ["error", { "max": 2 }],
-    "no-new-object": "error",
-    "no-tabs": "error",
-    "no-trailing-spaces": "error",
-    "object-curly-spacing": ["error", "always"],
-    "one-var": ["error", "never"],
-    "quotes": ["error", "single", { "allowTemplateLiterals": true }],
-    "semi": ["error", "always"],
-    "semi-spacing": "error",
-    "space-before-blocks": "error",
-    "space-before-function-paren": ["error", "never"],
-    "space-in-parens": "error",
-    "space-infix-ops": "error",
-    "space-unary-ops": "error",
+    "array-bracket-spacing": ["error", "never"],              // No spaces inside array brackets
+    "block-spacing": "error",                                 // Require consistent spacing inside single-line blocks
+    "brace-style": ["error", "1tbs", { "allowSingleLine": true }], // One True Brace Style
+    "camelcase": ["error", { "properties": "never" }],       // Require camelCase naming
+    "comma-dangle": ["error", "never"],                       // Disallow trailing commas
+    "comma-spacing": "error",                                 // Enforce spacing around commas
+    "comma-style": "error",                                   // Enforce consistent comma style
+    "computed-property-spacing": "error",                     // Disallow spaces inside computed properties
+    "func-call-spacing": "error",                            // Disallow spacing between function name and parentheses
+    "indent": ["error", 2, { "SwitchCase": 1 }],            // Enforce 2-space indentation
+    "key-spacing": "error",                                   // Enforce spacing around object literal keys
+    "keyword-spacing": "error",                               // Enforce spacing around keywords
+    "linebreak-style": ["error", "windows"],                 // Enforce Windows line endings (CRLF)
+    "max-len": ["warn", { "code": 100, "ignoreUrls": true }], // Warn when lines exceed 100 characters
+    "new-cap": "error",                                       // Require constructor names to begin with capital letter
+    "new-parens": "error",                                    // Require parentheses when invoking constructor
+    "no-array-constructor": "error",                          // Disallow Array constructor
+    "no-mixed-spaces-and-tabs": "error",                     // Disallow mixed spaces and tabs for indentation
+    "no-multiple-empty-lines": ["error", { "max": 2 }],      // Limit consecutive empty lines
+    "no-new-object": "error",                                 // Disallow Object constructor
+    "no-tabs": "error",                                       // Disallow tab characters entirely
+    "no-trailing-spaces": "error",                            // Disallow trailing whitespace
+    "object-curly-spacing": ["error", "always"],              // Require spaces inside object braces
+    "one-var": ["error", "never"],                           // Disallow multiple variable declarations per statement
+    "quotes": ["error", "single", { "allowTemplateLiterals": true }], // Require single quotes
+    "semi": ["error", "always"],                              // Require semicolons
+    "semi-spacing": "error",                                  // Enforce spacing around semicolons
+    "space-before-blocks": "error",                           // Require space before blocks
+    "space-before-function-paren": ["error", "never"],       // Disallow space before function parentheses
+    "space-in-parens": "error",                              // Disallow spaces inside parentheses
+    "space-infix-ops": "error",                              // Require spaces around infix operators
+    "space-unary-ops": "error",                              // Enforce spacing around unary operators
 
     // ES6+ Features
-    "arrow-spacing": "error",
-    "constructor-super": "error",
-    "no-class-assign": "error",
-    "no-const-assign": "error",
-    "no-dupe-class-members": "error",
-    "no-duplicate-imports": "error",
-    "no-new-symbol": "error",
-    "no-this-before-super": "error",
-    "no-var": "error",
-    "prefer-const": "error",
-    "prefer-rest-params": "error",
-    "prefer-spread": "error",
-    "prefer-template": "error",
-    "require-yield": "error",
-    "rest-spread-spacing": "error",
-    "template-curly-spacing": "error"
+    "arrow-spacing": "error",            // Enforce spacing around arrow function arrows
+    "constructor-super": "error",        // Require super() calls in constructors
+    "no-class-assign": "error",         // Disallow reassigning class members
+    "no-const-assign": "error",         // Disallow reassigning const variables
+    "no-dupe-class-members": "error",   // Disallow duplicate class members
+    "no-duplicate-imports": "error",    // Disallow duplicate module imports
+    "no-new-symbol": "error",           // Disallow new operator with Symbol object
+    "no-this-before-super": "error",    // Disallow this/super before super() calls
+    "no-var": "error",                  // Require let or const instead of var
+    "prefer-const": "error",            // Require const for variables never reassigned
+    "prefer-rest-params": "error",      // Require rest parameters instead of arguments
+    "prefer-spread": "error",           // Require spread operators instead of .apply()
+    "prefer-template": "error",         // Require template literals instead of string concatenation
+    "require-yield": "error",           // Require generator functions to contain yield
+    "rest-spread-spacing": "error",     // Enforce spacing between rest/spread operators
+    "template-curly-spacing": "error"   // Require consistent spacing inside template literal curly braces
   }
 }
