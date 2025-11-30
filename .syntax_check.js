@@ -11,10 +11,10 @@ for (const f of files) {
   try {
     const src = readFileSync(p, 'utf8');
     new Function(src); // parse-only
-    console.log(p + ': OK');
+    console.log(`${p}: OK`);
   } catch (e) {
     ok = false;
-    console.error(p + ': PARSE ERROR');
+    console.error(`${p}: PARSE ERROR`);
     console.error(e && e.stack ? e.stack : e.toString());
   }
 }
