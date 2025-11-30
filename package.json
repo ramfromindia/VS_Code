@@ -1,0 +1,23 @@
+{
+  "name": "vs-code-workspace",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "JavaScript development workspace with ESLint",
+  "main": "index.js",
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "lint:check": "eslint --print-config eslint.config.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "eslint": "^9.39.1"
+  },
+  "keywords": [
+    "javascript",
+    "eslint",
+    "development"
+  ],
+  "author": "",
+  "license": "ISC"
+}
