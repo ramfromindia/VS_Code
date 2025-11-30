@@ -55,14 +55,14 @@ myBtnElem.setAttribute(`aria-label`, `Analyze text`);
 
 let lastSortedFreqArr = [];
 // --- Output Caching ---
-let outputCache = {
+const outputCache = {
   input: null,
   analysisHtml: null,
   sortedListHtml: null,
   sortedFreqArr: null
 };
 // Benchmark cache
-let benchmarkCache = {
+const benchmarkCache = {
   input: null,
   outputHtml: null
 };
@@ -109,7 +109,7 @@ showSortedBtn.addEventListener(`click`, function(e) {
   }
 });
 
-let spinnerElem = document.getElementById(`loadingSpinner`);
+const spinnerElem = document.getElementById(`loadingSpinner`);
 
 // Helper function for sanitizing and splitting input text
 function getSanitizedWords(input) {
@@ -120,7 +120,7 @@ function getSanitizedWords(input) {
 // Optimized function for large scale data sets with keyboard trigger access and DOM event access like "click"
 function wordFrequency(e) {
   // Use optional chaining to safely access event type
-  if (e?.type === `keydown` && !(e.key === `Enter` || e.key === ` `)) return;
+  if (e?.type === `keydown` && !(e.key === `Enter` || e.key === ` `)) {return;}
 
   // Hide sorted list if visible and clear its content
   if (sortedListDiv) {
@@ -143,7 +143,7 @@ function wordFrequency(e) {
     outputCache.sortedFreqArr = null;
     setTimeout(function() {
       if (myFreqCalcElem.textContent === `No words found.`) {
-        myFreqCalcElem.textContent = "";
+        myFreqCalcElem.textContent = '';
       }
     }, 500);
     return;
@@ -151,15 +151,15 @@ function wordFrequency(e) {
 
   // If input matches cache, display cached analysis output
   if (outputCache.input === inputValue && outputCache.analysisHtml) {
-  myFreqCalcElem.innerHTML = outputCache.analysisHtml;
-  // Use nullish coalescing to default to empty array only if value is null/undefined
-  lastSortedFreqArr = outputCache.sortedFreqArr ?? [];
-  spinnerElem.style.display = `none`;
-  return;
+    myFreqCalcElem.innerHTML = outputCache.analysisHtml;
+    // Use nullish coalescing to default to empty array only if value is null/undefined
+    lastSortedFreqArr = outputCache.sortedFreqArr ?? [];
+    spinnerElem.style.display = `none`;
+    return;
   }
 
   let chunkStart = 0;
-  let freqMap = new Map();
+  const freqMap = new Map();
   let workerError = false;
   spinnerElem.style.display = `block`;
 
@@ -196,19 +196,19 @@ function wordFrequency(e) {
       }
     }
     let result = `Word Frequency:\n`;
-    result += (JSON.stringify(Object.fromEntries(freqMap), null, 2)) + `<br><br>` ;
-    result += `\nMost Recurring Word(s): ${mostWords.join(", ")} (${mostCount} times)<br>`;
-    result += `\nLeast Recurring Word(s): ${leastWords.join(", ")} (${leastCount} time${leastCount > 1 ? 's' : ''})<br><br>`;
+    result += `${JSON.stringify(Object.fromEntries(freqMap), null, 2)}<br><br>` ;
+    result += `\nMost Recurring Word(s): ${mostWords.join(', ')} (${mostCount} times)<br>`;
+    result += `\nLeast Recurring Word(s): ${leastWords.join(', ')} (${leastCount} time${leastCount > 1 ? 's' : ''})<br><br>`;
     return result;
   }
 
   // Process next chunk with dynamic sizing
   function processNextChunk() {
-    if (workerError) return;
+    if (workerError) {return;}
     if (chunkStart >= words.length) {
       const analysisHtml = formatResult(freqMap);
       myFreqCalcElem.innerHTML = analysisHtml;
-      spinnerElem.style.display = "none";
+      spinnerElem.style.display = 'none';
       worker.terminate();
       // Cache the output
       outputCache.input = inputValue;
@@ -224,8 +224,8 @@ function wordFrequency(e) {
     worker.postMessage(chunk);
     // After worker returns, adjust chunk size based on elapsed time
     worker.onmessage = function(e) {
-      let chunkMapArr = e.data;
-      let chunkMap = new Map(chunkMapArr);
+      const chunkMapArr = e.data;
+      const chunkMap = new Map(chunkMapArr);
       mergeMaps(freqMap, chunkMap);
       const end = performance.now();
       const elapsed = end - start;
@@ -245,7 +245,7 @@ function wordFrequency(e) {
   }
 
   worker.onerror = function(error) {
-    myFreqCalcElem.textContent = `Worker error: ` + error.message;
+    myFreqCalcElem.textContent = `Worker error: ${error.message}`;
     spinnerElem.style.display = `none`;
     workerError = true;
     worker.terminate();
@@ -270,10 +270,10 @@ function benchmarkFunctionsDOM(functionsWithArgs) {
   // If input matches cache, show cached output and skip computation
   if (benchmarkCache.input === currentInput && benchmarkCache.outputHtml) {
     // Remove previous benchmark result and cache indicator if present
-    let oldDiv = document.getElementById('benchmarkResults');
-    if (oldDiv) oldDiv.remove();
-    let oldIndicator = myFreqCalcElem.parentNode.querySelector('.cache-indicator');
-    if (oldIndicator) oldIndicator.remove();
+    const oldDiv = document.getElementById('benchmarkResults');
+    if (oldDiv) {oldDiv.remove();}
+    const oldIndicator = myFreqCalcElem.parentNode.querySelector('.cache-indicator');
+    if (oldIndicator) {oldIndicator.remove();}
     // Add cache indicator with fade-in effect
     const indicator = document.createElement('div');
     indicator.className = 'cache-indicator';
@@ -288,8 +288,8 @@ function benchmarkFunctionsDOM(functionsWithArgs) {
     return;
   }
   // Remove previous benchmark result if present
-  let oldDiv = document.getElementById('benchmarkResults');
-  if (oldDiv) oldDiv.remove();
+  const oldDiv = document.getElementById('benchmarkResults');
+  if (oldDiv) {oldDiv.remove();}
 
   const NUM_RUNS = 10; // Number of times to run each function for averaging
   const results = [];
@@ -298,13 +298,13 @@ function benchmarkFunctionsDOM(functionsWithArgs) {
     let totalTime = 0;
     for (let run = 0; run < NUM_RUNS; run++) {
       const start = performance.now();
-  fn(...(args ?? []));
+      fn(...(args ?? []));
       const end = performance.now();
       totalTime += (end - start);
     }
     const avgTime = totalTime / NUM_RUNS;
     results.push({
-  name: fn.name || 'anonymous',
+      name: fn.name || 'anonymous',
       time: avgTime.toFixed(3)
     });
   }

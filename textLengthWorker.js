@@ -4,106 +4,106 @@
 // implementation (no static `import`/`export` so the same file works both ways).
 
 (async function () {
-    'use strict';
+  'use strict';
 
-    // Optionally attempt to load helper utilities when running as a module
-    // worker. `importScripts` exists only in classic worker contexts, so
-    // when it's undefined we are likely in a module worker and can use
-    // dynamic import(). Any failure here is non-fatal; worker has an
-    // internal implementation as a fallback.
-    let helpers = null;
-    const isClassic = (typeof importScripts === 'function');
-    if (!isClassic) {
-        try {
-            // dynamic import works in module workers; this lets the worker
-            // optionally share code with other ES modules (e.g. tokenizers).
-            helpers = await import('./Text_LENGTH_tokenize.js').catch(() => null);
-        } catch (e) {
-            helpers = null;
-        }
+  // Optionally attempt to load helper utilities when running as a module
+  // worker. `importScripts` exists only in classic worker contexts, so
+  // when it's undefined we are likely in a module worker and can use
+  // dynamic import(). Any failure here is non-fatal; worker has an
+  // internal implementation as a fallback.
+  let helpers = null;
+  const isClassic = (typeof importScripts === 'function');
+  if (!isClassic) {
+    try {
+      // dynamic import works in module workers; this lets the worker
+      // optionally share code with other ES modules (e.g. tokenizers).
+      helpers = await import('./Text_LENGTH_tokenize.js').catch(() => null);
+    } catch (e) {
+      helpers = null;
+    }
+  }
+
+  // Internal processor — identical logic to previous worker: compute per-word
+  // lengths (Unicode code point aware), chunk min/max and arrays of words.
+  function processChunk(words, includeExtras) {
+    const items = new Array(words.length);
+    let minLen = Infinity, maxLen = 0;
+    const minWords = [];
+    const maxWords = [];
+
+    // Only create Map/Set/frequency helpers when requested to reduce work
+    let wordToLen, lenToWords, freqMap;
+    if (includeExtras) {
+      wordToLen = new Map();
+      lenToWords = new Map(); // len -> Set(words)
+      freqMap = new Map();
     }
 
-    // Internal processor — identical logic to previous worker: compute per-word
-    // lengths (Unicode code point aware), chunk min/max and arrays of words.
-    function processChunk(words, includeExtras) {
-        const items = new Array(words.length);
-        let minLen = Infinity, maxLen = 0;
-        const minWords = [];
-        const maxWords = [];
+    for (let i = 0; i < words.length; i++) {
+      const w = words[i];
+      const len = Array.from(w).length; // Unicode code-point aware
+      items[i] = { word: w, len };
 
-        // Only create Map/Set/frequency helpers when requested to reduce work
-        let wordToLen, lenToWords, freqMap;
-        if (includeExtras) {
-            wordToLen = new Map();
-            lenToWords = new Map(); // len -> Set(words)
-            freqMap = new Map();
-        }
+      if (len > maxLen) {
+        maxLen = len; maxWords.length = 0; maxWords.push(w);
+      } else if (len === maxLen) {
+        maxWords.push(w);
+      }
 
-        for (let i = 0; i < words.length; i++) {
-            const w = words[i];
-            const len = Array.from(w).length; // Unicode code-point aware
-            items[i] = { word: w, len };
+      if (len < minLen) {
+        minLen = len; minWords.length = 0; minWords.push(w);
+      } else if (len === minLen) {
+        minWords.push(w);
+      }
 
-            if (len > maxLen) {
-                maxLen = len; maxWords.length = 0; maxWords.push(w);
-            } else if (len === maxLen) {
-                maxWords.push(w);
-            }
-
-            if (len < minLen) {
-                minLen = len; minWords.length = 0; minWords.push(w);
-            } else if (len === minLen) {
-                minWords.push(w);
-            }
-
-            // Populate maps/sets only if extras were requested
-            if (includeExtras) {
-                try {
-                    if (!wordToLen.has(w)) wordToLen.set(w, len);
-                    let s = lenToWords.get(len);
-                    if (!s) { s = new Set(); lenToWords.set(len, s); }
-                    s.add(w);
-                    freqMap.set(w, (freqMap.get(w) || 0) + 1);
-                } catch (e) { /* ignore Map/Set errors in constrained environments */ }
-            }
-        }
-
-        // Serialize extras to plain arrays for maximum compatibility across contexts
-        // Only serialize extras when requested
-        const result = {
-            items,
-            minLen: minLen === Infinity ? 0 : minLen,
-            minWords,
-            maxLen,
-            maxWords
-        };
-        if (includeExtras) {
-            const minUniqueWords = Array.from(lenToWords.get(minLen) || []);
-            const maxUniqueWords = Array.from(lenToWords.get(maxLen) || []);
-            const lenToWordsEntries = Array.from(lenToWords.entries()).map(([l, set]) => [l, Array.from(set)]);
-            const freqEntries = Array.from(freqMap.entries());
-            result.minUniqueWords = minUniqueWords;
-            result.maxUniqueWords = maxUniqueWords;
-            result.lenToWordsEntries = lenToWordsEntries;
-            result.freqEntries = freqEntries;
-        }
-
-        return result;
+      // Populate maps/sets only if extras were requested
+      if (includeExtras) {
+        try {
+          if (!wordToLen.has(w)) {wordToLen.set(w, len);}
+          let s = lenToWords.get(len);
+          if (!s) { s = new Set(); lenToWords.set(len, s); }
+          s.add(w);
+          freqMap.set(w, (freqMap.get(w) || 0) + 1);
+        } catch (e) { /* ignore Map/Set errors in constrained environments */ }
+      }
     }
 
-    // Message handler — same shape as before
-    self.onmessage = function (ev) {
-        const msg = ev.data || {};
-        try {
-            if (msg.type === 'process' && Array.isArray(msg.words)) {
-                // Respect the extras flag (only compute/send extras when requested)
-                const includeExtras = !!msg.extras;
-                const result = processChunk(msg.words, includeExtras);
-                self.postMessage(Object.assign({ type: 'result' }, result));
-            }
-        } catch (err) {
-            self.postMessage({ type: 'error', error: String(err) });
-        }
+    // Serialize extras to plain arrays for maximum compatibility across contexts
+    // Only serialize extras when requested
+    const result = {
+      items,
+      minLen: minLen === Infinity ? 0 : minLen,
+      minWords,
+      maxLen,
+      maxWords
     };
+    if (includeExtras) {
+      const minUniqueWords = Array.from(lenToWords.get(minLen) || []);
+      const maxUniqueWords = Array.from(lenToWords.get(maxLen) || []);
+      const lenToWordsEntries = Array.from(lenToWords.entries()).map(([l, set]) => [l, Array.from(set)]);
+      const freqEntries = Array.from(freqMap.entries());
+      result.minUniqueWords = minUniqueWords;
+      result.maxUniqueWords = maxUniqueWords;
+      result.lenToWordsEntries = lenToWordsEntries;
+      result.freqEntries = freqEntries;
+    }
+
+    return result;
+  }
+
+  // Message handler — same shape as before
+  self.onmessage = function (ev) {
+    const msg = ev.data || {};
+    try {
+      if (msg.type === 'process' && Array.isArray(msg.words)) {
+        // Respect the extras flag (only compute/send extras when requested)
+        const includeExtras = !!msg.extras;
+        const result = processChunk(msg.words, includeExtras);
+        self.postMessage(Object.assign({ type: 'result' }, result));
+      }
+    } catch (err) {
+      self.postMessage({ type: 'error', error: String(err) });
+    }
+  };
 
 })();

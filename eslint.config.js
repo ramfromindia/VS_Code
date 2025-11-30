@@ -7,7 +7,8 @@ export default [
       'dist/**',
       'build/**',
       '*.min.js',
-      'coverage/**'
+      'coverage/**',
+      '**/*.html' // Exclude HTML files from ESLint parsing
     ]
   },
   js.configs.recommended,
@@ -30,6 +31,14 @@ export default [
         fetch: 'readonly',
         localStorage: 'readonly',
         sessionStorage: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
+        requestIdleCallback: 'readonly',
+        URL: 'readonly',
+        self: 'readonly',
+        navigator: 'readonly',
+        importScripts: 'readonly',
+        exposeToWindow: 'readonly',
         // Node.js globals
         process: 'readonly',
         Buffer: 'readonly',
@@ -117,17 +126,24 @@ export default [
     }
   },
   {
-    // Specific rules for HTML files with embedded JavaScript
-    files: ['**/*.html'],
+    // Specific rules for JavaScript files in browser context
+    files: ['**/*.js'],
+    rules: {
+      // Allow browser-specific APIs that might not be in all environments
+      'no-undef': ['error', { 'typeof': true }]
+    }
+  },
+  {
+    // Specific rules for Web Worker files
+    files: ['**/*Worker*.js', '**/textLengthWorker.js', '**/wordFrequencyWorker.js'],
     languageOptions: {
       globals: {
-        window: 'readonly',
-        document: 'readonly',
-        console: 'readonly'
+        self: 'readonly',
+        importScripts: 'readonly',
+        postMessage: 'readonly',
+        onmessage: 'writable',
+        onerror: 'writable'
       }
-    },
-    rules: {
-      'no-undef': 'off' // HTML files may have inline scripts with different scoping
     }
   }
 ];
