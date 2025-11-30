@@ -36,6 +36,9 @@ Thumbs.db
 # Coverage directory used by tools like istanbul
 coverage/
 
+# ESLint cache
+.eslintcache
+
 # Temporary files
 *.tmp
 *.temp

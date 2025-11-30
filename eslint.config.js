@@ -52,18 +52,23 @@ export default [
     },
     rules: {
       // Possible Errors - Enhanced
-      'no-console': 'warn',
+      'no-console': ['warn', { allow: ['error', 'warn'] }],
       'no-debugger': 'error',
       'no-duplicate-case': 'error',
-      'no-empty': 'warn',
+      'no-empty': ['error', { allowEmptyCatch: true }],
       'no-extra-semi': 'error',
       'no-func-assign': 'error',
       'no-irregular-whitespace': 'error',
       'no-unreachable': 'error',
-      'no-unused-vars': 'warn',
+      'no-unused-vars': ['warn', { 
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        ignoreRestSiblings: true 
+      }],
       'valid-typeof': 'error',
       'no-undef': 'error',
       'no-global-assign': 'error',
+      'no-implicit-globals': 'error',
 
       // Best Practices - Optimized
       'curly': 'error',

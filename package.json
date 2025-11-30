@@ -7,7 +7,11 @@
   "scripts": {
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "lint:check": "eslint --print-config eslint.config.js"
+    "lint:check": "eslint --print-config eslint.config.js",
+    "lint:dashboard": "eslint Text_LENGTH_Dashboard.js",
+    "lint:dashboard:fix": "eslint Text_LENGTH_Dashboard.js --fix",
+    "lint:watch": "eslint . --cache --cache-location .eslintcache",
+    "test:lint": "eslint . --max-warnings 0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
