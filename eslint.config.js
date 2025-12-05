@@ -62,7 +62,7 @@ export default [
       'no-unreachable': 'error',
       'no-unused-vars': ['warn', { 
         argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_',
+        varsIgnorePattern: '^(_|hideProgress|mostCommonWordsEl|leastCommonWordsEl)$',
         ignoreRestSiblings: true 
       }],
       'valid-typeof': 'error',
