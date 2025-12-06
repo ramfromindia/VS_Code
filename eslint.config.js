@@ -61,8 +61,9 @@ export default [
       'no-irregular-whitespace': 'error',
       'no-unreachable': 'error',
       'no-unused-vars': ['warn', { 
-        argsIgnorePattern: '^_',
+        argsIgnorePattern: '^(?:_|e|event|evt)$',
         varsIgnorePattern: '^(_|hideProgress|mostCommonWordsEl|leastCommonWordsEl)$',
+        caughtErrorsIgnorePattern: '^(?:_|e)$',
         ignoreRestSiblings: true 
       }],
       'valid-typeof': 'error',
@@ -81,6 +82,8 @@ export default [
       'no-implied-eval': 'error',
       'no-invalid-this': 'error',
       'no-multi-spaces': 'error',
+      // Prefer developers to avoid constructors used only for side-effects
+      // (fix the code instead of disabling the rule). Keep as a warning.
       'no-new': 'warn',
       'no-redeclare': 'error',
       'no-return-assign': 'error',
