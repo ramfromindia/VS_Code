@@ -61,7 +61,12 @@ async function analyzeWordLengths() {
     // Inline fallback (same logic as previous implementation)
     s = s.replace(/[’‘]/g, '\'');
     let wordPattern;
-    try { new RegExp('\\p{L}', 'u'); wordPattern = /[\p{L}\p{N}]+(?:['-][\p{L}\p{N}]+)*/gu; } catch (e) { wordPattern = /[A-Za-z0-9]+(?:['-][A-Za-z0-9]+)*/g; }
+    try {
+      RegExp('\\p{L}', 'u');
+      wordPattern = /[\p{L}\p{N}]+(?:['-][\p{L}\p{N}]+)*/gu;
+    } catch (e) {
+      wordPattern = /[A-Za-z0-9]+(?:['-][A-Za-z0-9]+)*/g;
+    }
     return s.match(wordPattern) ?? [];
   }
 
