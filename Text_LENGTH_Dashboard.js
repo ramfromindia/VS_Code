@@ -3,6 +3,13 @@ import { createAsyncProcessor as createAsyncProcessorImport } from './Text_LENGT
 import { clearResults, renderNoWordsFound, finalizeAndAnnounce, showProgress, hideProgress } from './Text_LENGTH_helperUI.js';
 import { getWorkerRunner as getWorkerRunnerImport } from './Text_LENGTH_workerRouter.js';
 
+// Dashboard overview:
+// - Tries to use lightweight imported modules first (tokenize,
+//   createAsyncProcessor, workerRouter).
+// - Provides robust inline fallbacks so analysis works without
+//   external modules or when Web Workers are unavailable.
+// - Keeps main orchestration logic in `analyzeWordLengths`.
+
 const analyzeBtn = document.getElementById('analyzeBtn');
 const form = document.getElementById('analyzeForm');
 const wordLengthsEl = document.getElementById('wordLengths'); // now a <ul>
@@ -20,11 +27,17 @@ const includeExtrasEl = document.getElementById('includeExtras');
 
 form?.addEventListener('submit', function (e) { e.preventDefault(); analyzeWordLengths(); });
 
+// Intercept the form submit to run the analysis in-place without
+// performing a full page reload. This keeps the UI responsive and
+// preserves any assistive-announcer messages.
+
 
 async function analyzeWordLengths() {
   const input = document.getElementById('inputText').value ?? '';
 
   // helper: Unicode code-point aware length
+  // Count by Unicode code points (so emoji and composed glyphs count
+  // as a single character rather than multiple UTF-16 code units).
   const getWordLen = (w) => Array.from(w).length;
 
   // --- small helpers to improve readability ---
@@ -36,6 +49,10 @@ async function analyzeWordLengths() {
     }
   }
 
+  // If a previous analysis is running (worker or main-thread), try to
+  // stop it cleanly before starting a new run. This avoids races and
+  // prevents multiple concurrent processors from stomping on shared
+  // UI/state references.
   function teardownPreviousRun() {
     try {
       if (typeof window !== 'undefined' && window.__TextLength_currentRunner && typeof window.__TextLength_currentRunner.terminate === 'function') {
@@ -59,6 +76,10 @@ async function analyzeWordLengths() {
     } catch (e) { /* ignore */ }
 
     // Inline fallback (same logic as previous implementation)
+    // Normalize curly/smart quotes to simpler ASCII apostrophes then
+    // attempt a Unicode-aware word regexp. If the runtime doesn't
+    // support Unicode property escapes (\p{L}) we fall back to an
+    // ASCII-friendly pattern.
     s = s.replace(/[’‘]/g, '\'');
     let wordPattern;
     try {
@@ -87,6 +108,8 @@ async function analyzeWordLengths() {
     } catch (e) { /* ignore */ }
 
     // Inline fallback (same behavior as before)
+    // The inline processor returns `processAsyncFromIndex(startIndex, batchSize, delay)`
+    // which batches rendering and map updates so the UI stays responsive.
     return (function _inlineCreate(wordsLocal, fragLocal, globalStateLocal) {
       return function processAsyncFromIndex(startIndex, batchSize = 200, delay = 0) {
         return new Promise((resolve) => {
@@ -94,51 +117,71 @@ async function analyzeWordLengths() {
           let aborted = false;
           try { if (typeof window !== 'undefined') {window.__TextLength_abortMainProcessing = function () { aborted = true; };} } catch (e) {}
 
-          function step() {
-            if (aborted) { try { if (typeof window !== 'undefined') {window.__TextLength_abortMainProcessing = null;} } catch (e) {} resolve(); return; }
-            const end = Math.min(i + batchSize, wordsLocal.length);
-            for (; i < end; i++) {
-              const word = wordsLocal[i];
+          function renderBatch(batchStart, end, batchFrag) {
+            for (let k = batchStart; k < end; k++) {
+              const word = wordsLocal[k];
               const len = getWordLen(word);
               const li = document.createElement('li');
               li.textContent = `${word} (${len})`;
               fragLocal.appendChild(li);
+              if (wordLengthsEl) { batchFrag.appendChild(li.cloneNode(true)); }
 
               if (len > globalStateLocal.globalMax) { globalStateLocal.globalMax = len; globalStateLocal.globalMaxWords.length = 0; globalStateLocal.globalMaxWords.push(word); } else if (len === globalStateLocal.globalMax) { globalStateLocal.globalMaxWords.push(word); }
               if (len < globalStateLocal.globalMin) { globalStateLocal.globalMin = len; globalStateLocal.globalMinWords.length = 0; globalStateLocal.globalMinWords.push(word); } else if (len === globalStateLocal.globalMin) { globalStateLocal.globalMinWords.push(word); }
             }
+          }
 
-            // Maintain Maps and frequency counts when extras are requested
+          // updateMaps: update optional Map/Set structures that are only
+          // present when `includeExtras` is requested. Guarded so the
+          // inline processor works even when those structures are absent.
+          function updateMaps(batchStart, end) {
             try {
-              for (let j = Math.max(startIndex, 0); j < end; j++) {
+              for (let j = batchStart; j < end; j++) {
                 const w = wordsLocal[j];
                 const l = getWordLen(w);
-                if (!globalStateLocal.wordToLen) {break;}
-                if (!globalStateLocal.wordToLen.has(w)) {globalStateLocal.wordToLen.set(w, l);}
+                if (!globalStateLocal.wordToLen) { break; }
+                if (!globalStateLocal.wordToLen.has(w)) { globalStateLocal.wordToLen.set(w, l); }
                 let s = globalStateLocal.lenToWords.get(l);
                 if (!s) { s = new Set(); globalStateLocal.lenToWords.set(l, s); }
                 s.add(w);
                 if (globalStateLocal.freqMap) {
                   try {
                     globalStateLocal.freqMap.set(w, (globalStateLocal.freqMap.get(w) || 0) + 1);
-                  } catch (e2) { /* ignore per-entry errors */ }
+                  } catch (e) { /* ignore per-entry errors */ }
                 }
               }
             } catch (e) { /* ignore Map/Set failures */ }
 
-            if (wordLengthsEl && fragLocal.childNodes.length > 0) {
-              wordLengthsEl.appendChild(fragLocal);
+            try {
+              if (typeof processedWords === 'number') { processedWords += (end - batchStart); }
+            } catch (e) { /* ignore processedWords update failures */ }
+          }
+
+          function processBatch(batchStart, end, batchFrag) {
+            renderBatch(batchStart, end, batchFrag);
+            updateMaps(batchStart, end);
+          }
+
+          function step() {
+            if (aborted) { try { if (typeof window !== 'undefined') { window.__TextLength_abortMainProcessing = null; } } catch (e) {} resolve(); return; }
+            const batchStart = i;
+            const end = Math.min(batchStart + batchSize, wordsLocal.length);
+            const batchFrag = document.createDocumentFragment();
+            processBatch(batchStart, end, batchFrag);
+
+            if (wordLengthsEl && batchFrag.childNodes.length > 0) {
+              wordLengthsEl.appendChild(batchFrag);
             }
 
-            if (i < wordsLocal.length) {
+            if (end < wordsLocal.length) {
+              i = end;
               if (typeof requestIdleCallback === 'function') {
                 requestIdleCallback(step, { timeout: 50 });
               } else {
                 setTimeout(step, delay);
               }
             } else {
-              if (wordLengthsEl && fragLocal.childNodes.length > 0) {wordLengthsEl.appendChild(fragLocal);}
-              try { if (typeof window !== 'undefined') {window.__TextLength_abortMainProcessing = null;} } catch (e) {}
+              try { if (typeof window !== 'undefined') { window.__TextLength_abortMainProcessing = null; } } catch (e) {}
               resolve();
             }
           }
@@ -151,31 +194,30 @@ async function analyzeWordLengths() {
   // Prefer external worker runner module if available; delegate to workerRouter
   async function resolveGetWorkerRunner(chunks, options = {}) {
     try {
-      if (typeof getWorkerRunnerImport === 'function') {return getWorkerRunnerImport(chunks, options);}
-    } catch (e) { /* ignore */ }
+      if (typeof getWorkerRunnerImport === 'function') {
+        return getWorkerRunnerImport(chunks, options);
+      }
 
-    // Fall back to legacy window-attached symbols if present
-    try {
-      if (typeof window !== 'undefined' && window.Text_LENGTH_workerRouter && typeof window.Text_LENGTH_workerRouter.getWorkerRunner === 'function') {
-        return window.Text_LENGTH_workerRouter.getWorkerRunner(chunks, options);
+      if (typeof window !== 'undefined') {
+        if (window.Text_LENGTH_workerRouter && typeof window.Text_LENGTH_workerRouter.getWorkerRunner === 'function') {
+          return window.Text_LENGTH_workerRouter.getWorkerRunner(chunks, options);
+        }
+        if (window.Text_LENGTH_workerRunner && typeof window.Text_LENGTH_workerRunner.runWorker === 'function') {
+          return window.Text_LENGTH_workerRunner.runWorker(chunks, undefined, options);
+        }
+        if (window.Text_LENGTH_workerRunner && typeof window.Text_LENGTH_workerRunner.runWorkerFallback === 'function') {
+          return window.Text_LENGTH_workerRunner.runWorkerFallback(chunks, undefined, options);
+        }
       }
     } catch (e) { /* ignore */ }
 
-    try {
-      if (typeof window !== 'undefined' && window.Text_LENGTH_workerRunner && typeof window.Text_LENGTH_workerRunner.runWorker === 'function') {
-        return window.Text_LENGTH_workerRunner.runWorker(chunks, undefined, options);
-      }
-    } catch (e) { /* ignore */ }
-
-    try {
-      if (typeof window !== 'undefined' && window.Text_LENGTH_workerRunner && typeof window.Text_LENGTH_workerRunner.runWorkerFallback === 'function') {
-        return window.Text_LENGTH_workerRunner.runWorkerFallback(chunks, undefined, options);
-      }
-    } catch (e) { /* ignore */ }
-
+    // Return a shaped failure object so callers can detect the
+    // unavailability of a worker-runner and fall back to the
+    // main-thread processor. The `kind: 'creation-failure'` sentinel
+    // is checked by upstream code.
     return {
-      promise: Promise.reject(new Error(JSON.stringify({ kind: 'creation-failure', error: new Error('Worker fallback module unavailable') }))),
-      terminate: function () {}
+      promise: Promise.reject(new Error(JSON.stringify({ kind: 'creation-failure', error: new Error('Worker fallback module unavailable') })) ),
+      terminate: function () { /* noop */ }
     };
   }
 
@@ -216,89 +258,93 @@ async function analyzeWordLengths() {
 
   const WORKER_TIMEOUT_MS = 4000;
 
-  function workerMessageHandler(msg) {
-    if (!msg) {return;}
-    try { if (typeof window !== 'undefined' && window.__TextLength_currentRunner !== runner) {return;} } catch (e) { }
-    if (msg.type === 'result') {
-      const items = msg.items || [];
-      for (let i = 0; i < items.length; i++) {
-        const it = items[i];
-        const li = document.createElement('li');
-        li.textContent = `${it.word} (${it.len})`;
-        frag.appendChild(li);
+  function applyWorkerItems(items) {
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      const li = document.createElement('li');
+      li.textContent = `${it.word} (${it.len})`;
+      frag.appendChild(li);
 
-        // keep Maps in sync with worker results for fast lookups
-        try {
-          if (!globalState.wordToLen.has(it.word)) {globalState.wordToLen.set(it.word, it.len);}
-          let s = globalState.lenToWords.get(it.len);
-          if (!s) { s = new Set(); globalState.lenToWords.set(it.len, s); }
-          s.add(it.word);
-        } catch (e) { /* ignore Map/Set failures */ }
-      }
-
-      processedWords += items.length;
-
-      if (typeof msg.maxLen === 'number') {
-        if (msg.maxLen > globalState.globalMax) {
-          globalState.globalMax = msg.maxLen; globalState.globalMaxWords.length = 0; Array.prototype.push.apply(globalState.globalMaxWords, msg.maxWords || []);
-        } else if (msg.maxLen === globalState.globalMax) {
-          Array.prototype.push.apply(globalState.globalMaxWords, msg.maxWords || []);
-        }
-      }
-      if (typeof msg.minLen === 'number') {
-        if (msg.minLen < globalState.globalMin) {
-          globalState.globalMin = msg.minLen; globalState.globalMinWords.length = 0; Array.prototype.push.apply(globalState.globalMinWords, msg.minWords || []);
-        } else if (msg.minLen === globalState.globalMin) {
-          Array.prototype.push.apply(globalState.globalMinWords, msg.minWords || []);
-        }
-      }
-
-      // Consume worker-provided extras (serialized Maps/sets) when available
       try {
-        if (includeExtrasRequested) {
-          if (Array.isArray(msg.minUniqueWords)) {
-            globalState.globalMinWords = msg.minUniqueWords.slice();
-          }
-          if (Array.isArray(msg.maxUniqueWords)) {
-            globalState.globalMaxWords = msg.maxUniqueWords.slice();
-          }
-
-          if (Array.isArray(msg.lenToWordsEntries) && globalState.lenToWords) {
-            msg.lenToWordsEntries.forEach(function (entry) {
-              try {
-                const lenKey = Number(entry[0]);
-                const arr = Array.isArray(entry[1]) ? entry[1] : [];
-                let s = globalState.lenToWords.get(lenKey);
-                if (!s) { s = new Set(); globalState.lenToWords.set(lenKey, s); }
-                for (let k = 0; k < arr.length; k++) {
-                  const w = arr[k];
-                  s.add(w);
-                  if (globalState.wordToLen && !globalState.wordToLen.has(w)) {globalState.wordToLen.set(w, lenKey);}
-                }
-              } catch (e) { /* ignore per-entry errors */ }
-            });
-          }
-
-          if (Array.isArray(msg.freqEntries) && globalState.freqMap) {
-            msg.freqEntries.forEach(function (pair) {
-              try {
-                const w = pair[0];
-                const cnt = Number(pair[1]) || 0;
-                globalState.freqMap.set(w, (globalState.freqMap.get(w) || 0) + cnt);
-              } catch (e) { /* ignore per-entry errors */ }
-            });
-          }
-        }
-      } catch (e) { /* ignore extras parsing errors */ }
-    } else if (msg.type === 'error') {
-      console.error('Worker error:', msg.error);
+        if (!globalState.wordToLen.has(it.word)) { globalState.wordToLen.set(it.word, it.len); }
+        let s = globalState.lenToWords.get(it.len);
+        if (!s) { s = new Set(); globalState.lenToWords.set(it.len, s); }
+        s.add(it.word);
+      } catch (e) { /* ignore Map/Set failures */ }
     }
+    processedWords += items.length;
+  }
+
+  function applyMinMax(msg) {
+    if (typeof msg.maxLen === 'number') {
+      if (msg.maxLen > globalState.globalMax) {
+        globalState.globalMax = msg.maxLen; globalState.globalMaxWords.length = 0; Array.prototype.push.apply(globalState.globalMaxWords, msg.maxWords || []);
+      } else if (msg.maxLen === globalState.globalMax) {
+        Array.prototype.push.apply(globalState.globalMaxWords, msg.maxWords || []);
+      }
+    }
+    if (typeof msg.minLen === 'number') {
+      if (msg.minLen < globalState.globalMin) {
+        globalState.globalMin = msg.minLen; globalState.globalMinWords.length = 0; Array.prototype.push.apply(globalState.globalMinWords, msg.minWords || []);
+      } else if (msg.minLen === globalState.globalMin) {
+        Array.prototype.push.apply(globalState.globalMinWords, msg.minWords || []);
+      }
+    }
+  }
+
+  function applyExtras(msg) {
+    try {
+      if (!includeExtrasRequested) { return; }
+      if (Array.isArray(msg.minUniqueWords)) { globalState.globalMinWords = msg.minUniqueWords.slice(); }
+      if (Array.isArray(msg.maxUniqueWords)) { globalState.globalMaxWords = msg.maxUniqueWords.slice(); }
+
+      if (Array.isArray(msg.lenToWordsEntries) && globalState.lenToWords) {
+        msg.lenToWordsEntries.forEach(function (entry) {
+          try {
+            const lenKey = Number(entry[0]);
+            const arr = Array.isArray(entry[1]) ? entry[1] : [];
+            let s = globalState.lenToWords.get(lenKey);
+            if (!s) { s = new Set(); globalState.lenToWords.set(lenKey, s); }
+            for (let k = 0; k < arr.length; k++) {
+              const w = arr[k];
+              s.add(w);
+              if (globalState.wordToLen && !globalState.wordToLen.has(w)) { globalState.wordToLen.set(w, lenKey); }
+            }
+          } catch (e) { /* ignore per-entry errors */ }
+        });
+      }
+
+      if (Array.isArray(msg.freqEntries) && globalState.freqMap) {
+        msg.freqEntries.forEach(function (pair) {
+          try {
+            const w = pair[0];
+            const cnt = Number(pair[1]) || 0;
+            globalState.freqMap.set(w, (globalState.freqMap.get(w) || 0) + cnt);
+          } catch (e) { /* ignore per-entry errors */ }
+        });
+      }
+    } catch (e) { /* ignore extras parsing errors */ }
+  }
+
+  function handleWorkerResult(msg) {
+    applyWorkerItems(msg.items || []);
+    applyMinMax(msg);
+    applyExtras(msg);
+  }
+
+  function workerMessageHandler(msg) {
+    if (!msg) { return; }
+    try { if (typeof window !== 'undefined' && window.__TextLength_currentRunner !== runner) { return; } } catch (e) { }
+    if (msg.type === 'result') { handleWorkerResult(msg); } else if (msg.type === 'error') { console.error('Worker error:', msg.error); }
   }
 
   const runner = await resolveGetWorkerRunner(chunks, { onMessage: workerMessageHandler, includeExtras: includeExtrasRequested });
   try { if (typeof window !== 'undefined') {window.__TextLength_currentRunner = runner;} } catch (e) {}
 
   runner.promise = runner.promise.catch(async (err) => {
+    // If the runner rejected with our sentinel creation-failure,
+    // display a user-visible warning and then run the main-thread
+    // processor as a fallback.
     if (err && err.kind === 'creation-failure') {
       const warn = document.createElement('div');
       warn.textContent = 'Web Worker unavailable ¼ falling back to main-thread processing.';
@@ -317,6 +363,10 @@ async function analyzeWordLengths() {
     setTimeout(() => resolve({ timedOut: true, processedCount: words.length - (remainingChunks * CHUNK_SIZE) }), WORKER_TIMEOUT_MS);
   });
 
+  // Race the worker-runner against a small timeout so slow workers
+  // don't indefinitely delay rendering; if the timeout wins, the
+  // main-thread processor continues from the reported processed
+  // count.
   return Promise.race([runner.promise, timeoutPromise])
     .then(async (result) => {
       if (result && result.fallbackHandled) {return;}
