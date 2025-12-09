@@ -19,7 +19,7 @@ export function tokenize(input) {
   // otherwise fall back to an ASCII-safe pattern.
   let wordPattern;
   try {
-    new RegExp('\\p{L}', 'u');
+    RegExp('\\p{L}', 'u');
     wordPattern = /[\p{L}\p{N}]+(?:['-][\p{L}\p{N}]+)*/gu;
   } catch (e) {
     wordPattern = /[A-Za-z0-9]+(?:['-][A-Za-z0-9]+)*/g;
