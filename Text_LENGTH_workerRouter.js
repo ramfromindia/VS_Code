@@ -30,7 +30,7 @@ export async function getWorkerRunner(chunks, options = {}) {
 
   return {
     promise: Promise.reject(new Error(JSON.stringify({ kind: 'creation-failure', error: new Error('Worker fallback module unavailable') }))),
-    terminate: function () {}
+    terminate: function () { /* intentionally empty - conforms to { promise, terminate } contract */ }
   };
 }
 
