@@ -11,15 +11,52 @@
   // when it's undefined we are likely in a module worker and can use
   // dynamic import(). Any failure here is non-fatal; worker has an
   // internal implementation as a fallback.
-  let helpers = null;
   const isClassic = (typeof importScripts === 'function');
   if (!isClassic) {
     try {
       // dynamic import works in module workers; this lets the worker
       // optionally share code with other ES modules (e.g. tokenizers).
-      helpers = await import('./Text_LENGTH_tokenize.js').catch(() => null);
+      // eslint-disable-next-line no-unused-vars
+      const helpers = await import('./Text_LENGTH_tokenize.js').catch(() => null);
     } catch (e) {
-      helpers = null;
+      // Fallback to internal implementation
+    }
+  }
+
+  // Helper function to track min/max words and lengths
+  function updateMinMax(word, len, minTracker, maxTracker) {
+    if (len > maxTracker.len) {
+      maxTracker.len = len;
+      maxTracker.words.length = 0;
+      maxTracker.words.push(word);
+    } else if (len === maxTracker.len) {
+      maxTracker.words.push(word);
+    }
+
+    if (len < minTracker.len) {
+      minTracker.len = len;
+      minTracker.words.length = 0;
+      minTracker.words.push(word);
+    } else if (len === minTracker.len) {
+      minTracker.words.push(word);
+    }
+  }
+
+  // Helper function to populate extras maps
+  function populateExtras(word, len, maps) {
+    try {
+      if (!maps.wordToLen.has(word)) {
+        maps.wordToLen.set(word, len);
+      }
+      let s = maps.lenToWords.get(len);
+      if (!s) {
+        s = new Set();
+        maps.lenToWords.set(len, s);
+      }
+      s.add(word);
+      maps.freqMap.set(word, (maps.freqMap.get(word) || 0) + 1);
+    } catch (e) {
+      // ignore Map/Set errors in constrained environments
     }
   }
 
@@ -27,44 +64,25 @@
   // lengths (Unicode code point aware), chunk min/max and arrays of words.
   function processChunk(words, includeExtras) {
     const items = new Array(words.length);
-    let minLen = Infinity, maxLen = 0;
-    const minWords = [];
-    const maxWords = [];
+    const minTracker = { len: Infinity, words: [] };
+    const maxTracker = { len: 0, words: [] };
 
     // Only create Map/Set/frequency helpers when requested to reduce work
-    let wordToLen, lenToWords, freqMap;
-    if (includeExtras) {
-      wordToLen = new Map();
-      lenToWords = new Map(); // len -> Set(words)
-      freqMap = new Map();
-    }
+    const maps = includeExtras ? {
+      wordToLen: new Map(),
+      lenToWords: new Map(), // len -> Set(words)
+      freqMap: new Map()
+    } : null;
 
     for (let i = 0; i < words.length; i++) {
       const w = words[i];
       const len = Array.from(w).length; // Unicode code-point aware
       items[i] = { word: w, len };
 
-      if (len > maxLen) {
-        maxLen = len; maxWords.length = 0; maxWords.push(w);
-      } else if (len === maxLen) {
-        maxWords.push(w);
-      }
+      updateMinMax(w, len, minTracker, maxTracker);
 
-      if (len < minLen) {
-        minLen = len; minWords.length = 0; minWords.push(w);
-      } else if (len === minLen) {
-        minWords.push(w);
-      }
-
-      // Populate maps/sets only if extras were requested
       if (includeExtras) {
-        try {
-          if (!wordToLen.has(w)) {wordToLen.set(w, len);}
-          let s = lenToWords.get(len);
-          if (!s) { s = new Set(); lenToWords.set(len, s); }
-          s.add(w);
-          freqMap.set(w, (freqMap.get(w) || 0) + 1);
-        } catch (e) { /* ignore Map/Set errors in constrained environments */ }
+        populateExtras(w, len, maps);
       }
     }
 
@@ -72,16 +90,17 @@
     // Only serialize extras when requested
     const result = {
       items,
-      minLen: minLen === Infinity ? 0 : minLen,
-      minWords,
-      maxLen,
-      maxWords
+      minLen: minTracker.len === Infinity ? 0 : minTracker.len,
+      minWords: minTracker.words,
+      maxLen: maxTracker.len,
+      maxWords: maxTracker.words
     };
+
     if (includeExtras) {
-      const minUniqueWords = Array.from(lenToWords.get(minLen) || []);
-      const maxUniqueWords = Array.from(lenToWords.get(maxLen) || []);
-      const lenToWordsEntries = Array.from(lenToWords.entries()).map(([l, set]) => [l, Array.from(set)]);
-      const freqEntries = Array.from(freqMap.entries());
+      const minUniqueWords = Array.from(maps.lenToWords.get(minTracker.len) || []);
+      const maxUniqueWords = Array.from(maps.lenToWords.get(maxTracker.len) || []);
+      const lenToWordsEntries = Array.from(maps.lenToWords.entries()).map(([l, set]) => [l, Array.from(set)]);
+      const freqEntries = Array.from(maps.freqMap.entries());
       result.minUniqueWords = minUniqueWords;
       result.maxUniqueWords = maxUniqueWords;
       result.lenToWordsEntries = lenToWordsEntries;
