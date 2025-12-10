@@ -46,7 +46,9 @@ export function createAsyncProcessor(words, frag, globalState, options = {}) {
       function maintainMaps(from, to) {
         if (!globalState.wordToLen) { return; }
         try {
-          for (let j = Math.max(startIndex, 0); j < to; j++) {
+          // Use the provided `from` argument (not the outer `startIndex`)
+          // so map bookkeeping matches the exact batch being processed.
+          for (let j = Math.max(from, 0); j < to; j++) {
             const w = words[j];
             const l = getWordLen(w);
             if (!globalState.wordToLen.has(w)) { globalState.wordToLen.set(w, l); }
