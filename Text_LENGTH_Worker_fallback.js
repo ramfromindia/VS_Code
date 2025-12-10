@@ -10,7 +10,7 @@ export function runWorkerFallback(chunksToProcess, workerPath = 'textLengthWorke
   } catch (e) { /* ignore */ }
   return {
     promise: Promise.reject(new Error(JSON.stringify({ kind: 'creation-failure', error: new Error('Worker runner unavailable') }))),
-    terminate: function () {}
+    terminate: function () { /* no-op when worker unavailable */ }
   };
 }
 
